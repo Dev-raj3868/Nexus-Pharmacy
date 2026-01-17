@@ -20,6 +20,11 @@ import {
   Loader2,
   Plus,
   List,
+  ShoppingCart,
+  PackageCheck,
+  Send,
+  CreditCard,
+  Boxes,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -38,11 +43,45 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
   const location = useLocation();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Main Inventory Management dropdown
+  const [inventoryMgmtOpen, setInventoryMgmtOpen] = useState(
+    location.pathname.includes("/dashboard/inventory") ||
+    location.pathname.includes("/dashboard/purchase-orders") ||
+    location.pathname.includes("/dashboard/receive-orders") ||
+    location.pathname.includes("/dashboard/issue-orders") ||
+    location.pathname.includes("/dashboard/inventory-purchase") ||
+    location.pathname.includes("/dashboard/inventory-receive") ||
+    location.pathname.includes("/dashboard/debit-credit")
+  );
+  
+  // Sub-dropdowns within Inventory Management
+  const [inventoryOpen, setInventoryOpen] = useState(
+    location.pathname.includes("/dashboard/inventory") &&
+    !location.pathname.includes("/dashboard/inventory-purchase") &&
+    !location.pathname.includes("/dashboard/inventory-receive")
+  );
+  const [inventoryPurchaseOpen, setInventoryPurchaseOpen] = useState(
+    location.pathname.includes("/dashboard/inventory-purchase")
+  );
+  const [inventoryReceiveOpen, setInventoryReceiveOpen] = useState(
+    location.pathname.includes("/dashboard/inventory-receive")
+  );
+  const [purchaseOpen, setPurchaseOpen] = useState(
+    location.pathname.includes("/dashboard/purchase-orders")
+  );
+  const [receiveOpen, setReceiveOpen] = useState(
+    location.pathname.includes("/dashboard/receive-orders")
+  );
+  const [issueOpen, setIssueOpen] = useState(
+    location.pathname.includes("/dashboard/issue-orders")
+  );
+  const [debitCreditOpen, setDebitCreditOpen] = useState(
+    location.pathname.includes("/dashboard/debit-credit")
+  );
+  
   const [distributorsOpen, setDistributorsOpen] = useState(
     location.pathname.includes("/dashboard/distributors")
-  );
-  const [receiveOrdersOpen, setReceiveOrdersOpen] = useState(
-    location.pathname.includes("/dashboard/receive-orders")
   );
   const [billTemplateOpen, setBillTemplateOpen] = useState(
     location.pathname.includes("/dashboard/bill-template")
@@ -91,14 +130,6 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
     return user.email?.split("@")[0] || "User";
   };
 
-  const sidebarItems = [
-    { icon: User, label: "Profile", path: "/dashboard/profile" },
-    { icon: Package, label: "Inventory", path: "/dashboard/inventory" },
-    { icon: Users, label: "Customers", path: "/dashboard/customers" },
-    { icon: BarChart3, label: "Statistics", path: "/dashboard/statistics" },
-    { icon: FileSpreadsheet, label: "GST Reports", path: "/dashboard/gst-reports" },
-  ];
-
   return (
     <div className="min-h-screen bg-background">
       {/* Top Header */}
@@ -110,9 +141,6 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
           <Button variant="hero" size="sm" className="text-xs">
             Upgrade to <span className="font-bold ml-1">Pro</span>
           </Button>
-          {/* <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm">
-            {profile?.pharmacy_name?.charAt(0) || "P"}
-          </div> */}
         </div>
 
         <div className="flex items-center gap-2">
@@ -188,7 +216,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
         {/* Sidebar */}
         <aside
           className={`${
-            sidebarOpen ? "w-48" : "w-16"
+            sidebarOpen ? "w-56" : "w-16"
           } bg-card border-r border-border min-h-[calc(100vh-120px)] transition-all duration-300 relative`}
         >
           <div className="p-3">
@@ -200,21 +228,297 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
             </button>
           </div>
 
-          <nav className="px-3 space-y-1">
-            {sidebarItems.slice(0, 3).map((item, index) => (
-              <Link
-                key={index}
-                to={item.path}
+          <nav className="px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+            {/* Profile Link */}
+            <Link
+              to="/dashboard/profile"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                location.pathname === "/dashboard/profile"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <User className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Profile</span>}
+            </Link>
+
+            {/* Inventory Management Main Dropdown */}
+            <Collapsible open={inventoryMgmtOpen} onOpenChange={setInventoryMgmtOpen}>
+              <CollapsibleTrigger
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  location.pathname === item.path
-                    ? "bg-primary text-primary-foreground"
+                  location.pathname.includes("/dashboard/inventory") ||
+                  location.pathname.includes("/dashboard/purchase-orders") ||
+                  location.pathname.includes("/dashboard/receive-orders") ||
+                  location.pathname.includes("/dashboard/issue-orders") ||
+                  location.pathname.includes("/dashboard/debit-credit")
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span>{item.label}</span>}
-              </Link>
-            ))}
+                <Boxes className="w-5 h-5 flex-shrink-0" />
+                {sidebarOpen && (
+                  <>
+                    <span className="flex-1 text-left">Inventory Mgmt</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        inventoryMgmtOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </>
+                )}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-4 space-y-1 mt-1">
+                {/* Inventory Sub-dropdown */}
+                <Collapsible open={inventoryOpen} onOpenChange={setInventoryOpen}>
+                  <CollapsibleTrigger
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      location.pathname.includes("/dashboard/inventory") &&
+                      !location.pathname.includes("/dashboard/inventory-purchase") &&
+                      !location.pathname.includes("/dashboard/inventory-receive")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Package className="w-4 h-4 flex-shrink-0" />
+                    {sidebarOpen && (
+                      <>
+                        <span className="flex-1 text-left">Inventory</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform ${
+                            inventoryOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-6 space-y-1 mt-1">
+                    <Link
+                      to="/dashboard/inventory/create"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/inventory/create"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {sidebarOpen && <span>Create</span>}
+                    </Link>
+                    <Link
+                      to="/dashboard/inventory"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/inventory"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <List className="w-3 h-3" />
+                      {sidebarOpen && <span>Get</span>}
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Inventory Purchase Sub-dropdown (NEW - separate from home page) */}
+                <Collapsible open={inventoryPurchaseOpen} onOpenChange={setInventoryPurchaseOpen}>
+                  <CollapsibleTrigger
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      location.pathname.includes("/dashboard/inventory-purchase")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <ShoppingCart className="w-4 h-4 flex-shrink-0" />
+                    {sidebarOpen && (
+                      <>
+                        <span className="flex-1 text-left">Inventory Purchase</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform ${
+                            inventoryPurchaseOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-6 space-y-1 mt-1">
+                    <Link
+                      to="/dashboard/inventory-purchase/create"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/inventory-purchase/create"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {sidebarOpen && <span>Create</span>}
+                    </Link>
+                    <Link
+                      to="/dashboard/inventory-purchase"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/inventory-purchase"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <List className="w-3 h-3" />
+                      {sidebarOpen && <span>Get</span>}
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Inventory Receive Sub-dropdown (NEW - separate from home page) */}
+                <Collapsible open={inventoryReceiveOpen} onOpenChange={setInventoryReceiveOpen}>
+                  <CollapsibleTrigger
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      location.pathname.includes("/dashboard/inventory-receive")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <PackageCheck className="w-4 h-4 flex-shrink-0" />
+                    {sidebarOpen && (
+                      <>
+                        <span className="flex-1 text-left">Inventory Receive</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform ${
+                            inventoryReceiveOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-6 space-y-1 mt-1">
+                    <Link
+                      to="/dashboard/inventory-receive/create"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/inventory-receive/create"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {sidebarOpen && <span>Create</span>}
+                    </Link>
+                    <Link
+                      to="/dashboard/inventory-receive"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/inventory-receive"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <List className="w-3 h-3" />
+                      {sidebarOpen && <span>Get</span>}
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Issue Sub-dropdown */}
+                <Collapsible open={issueOpen} onOpenChange={setIssueOpen}>
+                  <CollapsibleTrigger
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      location.pathname.includes("/dashboard/issue-orders")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Send className="w-4 h-4 flex-shrink-0" />
+                    {sidebarOpen && (
+                      <>
+                        <span className="flex-1 text-left">Issue</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform ${
+                            issueOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-6 space-y-1 mt-1">
+                    <Link
+                      to="/dashboard/issue-orders/create"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/issue-orders/create"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {sidebarOpen && <span>Create</span>}
+                    </Link>
+                    <Link
+                      to="/dashboard/issue-orders"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/issue-orders"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <List className="w-3 h-3" />
+                      {sidebarOpen && <span>Get</span>}
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Debit/Credit Sub-dropdown */}
+                <Collapsible open={debitCreditOpen} onOpenChange={setDebitCreditOpen}>
+                  <CollapsibleTrigger
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      location.pathname.includes("/dashboard/debit-credit")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4 flex-shrink-0" />
+                    {sidebarOpen && (
+                      <>
+                        <span className="flex-1 text-left">Debit/Credit</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform ${
+                            debitCreditOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-6 space-y-1 mt-1">
+                    <Link
+                      to="/dashboard/debit-credit/create"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/debit-credit/create"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {sidebarOpen && <span>Create</span>}
+                    </Link>
+                    <Link
+                      to="/dashboard/debit-credit"
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        location.pathname === "/dashboard/debit-credit"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <List className="w-3 h-3" />
+                      {sidebarOpen && <span>Get</span>}
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Customers Link */}
+            <Link
+              to="/dashboard/customers"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                location.pathname.includes("/dashboard/customers")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Users className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Customers</span>}
+            </Link>
 
             {/* Bill Template Dropdown */}
             <Collapsible open={billTemplateOpen} onOpenChange={setBillTemplateOpen}>
@@ -310,67 +614,31 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
               </CollapsibleContent>
             </Collapsible>
 
-            {/* Receive Orders Dropdown */}
-            <Collapsible open={receiveOrdersOpen} onOpenChange={setReceiveOrdersOpen}>
-              <CollapsibleTrigger
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  location.pathname.includes("/dashboard/receive-orders")
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <Package className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && (
-                  <>
-                    <span className="flex-1 text-left">Receive Orders</span>
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${
-                        receiveOrdersOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </>
-                )}
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pl-8 space-y-1 mt-1">
-                <Link
-                  to="/dashboard/receive-orders/create"
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    location.pathname === "/dashboard/receive-orders/create"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <Plus className="w-4 h-4" />
-                  {sidebarOpen && <span>Create</span>}
-                </Link>
-                <Link
-                  to="/dashboard/receive-orders"
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    location.pathname === "/dashboard/receive-orders"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                  {sidebarOpen && <span>Get</span>}
-                </Link>
-              </CollapsibleContent>
-            </Collapsible>
+            {/* Statistics Link */}
+            <Link
+              to="/dashboard/statistics"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                location.pathname === "/dashboard/statistics"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <BarChart3 className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Statistics</span>}
+            </Link>
 
-            {sidebarItems.slice(3).map((item, index) => (
-              <Link
-                key={index + 3}
-                to={item.path}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  location.pathname === item.path
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span>{item.label}</span>}
-              </Link>
-            ))}
+            {/* GST Reports Link */}
+            <Link
+              to="/dashboard/gst-reports"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                location.pathname.includes("/dashboard/gst-reports")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <FileSpreadsheet className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>GST Reports</span>}
+            </Link>
           </nav>
 
           <div className="absolute bottom-4 left-0 w-full px-3">

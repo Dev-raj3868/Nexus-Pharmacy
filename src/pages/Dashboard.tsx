@@ -100,7 +100,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-4 gap-4 mb-6">
         {/* Create Bill */}
         <div
-          onClick={() => navigate("/dashboard/bill-template/create")}
+          onClick={() => navigate("/dashboard/bills/create")}
           className="bg-gradient-to-r from-emerald-100 to-emerald-50 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:shadow-card transition-all group"
         >
           <div className="w-12 h-12 rounded-full bg-card shadow-sm flex items-center justify-center text-2xl">

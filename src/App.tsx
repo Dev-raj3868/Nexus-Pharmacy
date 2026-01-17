@@ -21,11 +21,20 @@ import CreateReceiveOrder from "./pages/receive-orders/CreateReceiveOrder";
 import GetReceiveOrders from "./pages/receive-orders/GetReceiveOrders";
 import CreatePurchaseOrder from "./pages/purchase-orders/CreatePurchaseOrder";
 import GetPurchaseOrders from "./pages/purchase-orders/GetPurchaseOrders";
+import CreateIssueOrder from "./pages/issue-orders/CreateIssueOrder";
+import GetIssueOrders from "./pages/issue-orders/GetIssueOrders";
 import CreateBillTemplate from "./pages/bill-template/CreateBillTemplate";
 import GetBillTemplate from "./pages/bill-template/GetBillTemplate";
+import CreateBill from "./pages/bills/CreateBill";
 import Statistics from "./pages/statistics/Statistics";
 import Profile from "./pages/profile/Profile";
 import NotFound from "./pages/NotFound";
+import CreateInventoryPurchase from "./pages/inventory-purchase/CreateInventoryPurchase";
+import GetInventoryPurchase from "./pages/inventory-purchase/GetInventoryPurchase";
+import CreateInventoryReceive from "./pages/inventory-receive/CreateInventoryReceive";
+import GetInventoryReceive from "./pages/inventory-receive/GetInventoryReceive";
+import CreateDebitCredit from "./pages/debit-credit/CreateDebitCredit";
+import GetDebitCredit from "./pages/debit-credit/GetDebitCredit";
 
 const queryClient = new QueryClient();
 
@@ -47,17 +56,28 @@ const App = () => (
             <Route path="/dashboard/customers/list" element={<CustomerList />} />
             <Route path="/dashboard/gst-reports" element={<GstReportSearch />} />
             <Route path="/dashboard/gst-reports/list" element={<GstReportList />} />
-            <Route path="/dashboard/inventory" element={<InventoryManagement />} />
-            <Route path="/dashboard/get-inventory" element={<GetInventorySearch />} />
-            <Route path="/dashboard/get-inventory/list" element={<GetInventoryList />} />
+            <Route path="/dashboard/inventory" element={<GetInventoryList />} />
+            <Route path="/dashboard/inventory/create" element={<InventoryManagement />} />
             <Route path="/dashboard/receive-orders/create" element={<CreateReceiveOrder />} />
             <Route path="/dashboard/receive-orders" element={<GetReceiveOrders />} />
             <Route path="/dashboard/purchase-orders/create" element={<CreatePurchaseOrder />} />
             <Route path="/dashboard/purchase-orders" element={<GetPurchaseOrders />} />
+            <Route path="/dashboard/issue-orders/create" element={<CreateIssueOrder />} />
+            <Route path="/dashboard/issue-orders" element={<GetIssueOrders />} />
             <Route path="/dashboard/bill-template/create" element={<CreateBillTemplate />} />
             <Route path="/dashboard/bill-template" element={<GetBillTemplate />} />
+            <Route path="/dashboard/bills/create" element={<CreateBill />} />
             <Route path="/dashboard/statistics" element={<Statistics />} />
             <Route path="/dashboard/profile" element={<Profile />} />
+            {/* New Inventory Purchase routes (separate from home page) */}
+            <Route path="/dashboard/inventory-purchase/create" element={<CreateInventoryPurchase />} />
+            <Route path="/dashboard/inventory-purchase" element={<GetInventoryPurchase />} />
+            {/* New Inventory Receive routes (separate from home page) */}
+            <Route path="/dashboard/inventory-receive/create" element={<CreateInventoryReceive />} />
+            <Route path="/dashboard/inventory-receive" element={<GetInventoryReceive />} />
+            {/* Debit/Credit routes */}
+            <Route path="/dashboard/debit-credit/create" element={<CreateDebitCredit />} />
+            <Route path="/dashboard/debit-credit" element={<GetDebitCredit />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>
