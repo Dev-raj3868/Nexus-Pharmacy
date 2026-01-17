@@ -177,6 +177,104 @@ export type Database = {
           },
         ]
       }
+      debit_credit_items: {
+        Row: {
+          batch_no: string | null
+          category: string | null
+          created_at: string
+          debit_credit_note_id: string
+          gst: string | null
+          id: string
+          item_name: string
+          price: number | null
+          quantity: number
+          reason: string | null
+          unit: string
+          user_id: string
+        }
+        Insert: {
+          batch_no?: string | null
+          category?: string | null
+          created_at?: string
+          debit_credit_note_id: string
+          gst?: string | null
+          id?: string
+          item_name: string
+          price?: number | null
+          quantity?: number
+          reason?: string | null
+          unit: string
+          user_id: string
+        }
+        Update: {
+          batch_no?: string | null
+          category?: string | null
+          created_at?: string
+          debit_credit_note_id?: string
+          gst?: string | null
+          id?: string
+          item_name?: string
+          price?: number | null
+          quantity?: number
+          reason?: string | null
+          unit?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debit_credit_items_debit_credit_note_id_fkey"
+            columns: ["debit_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "debit_credit_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      debit_credit_notes: {
+        Row: {
+          created_at: string
+          id: string
+          issue_date: string
+          note_id: string
+          note_type: string
+          purchase_order_id: string | null
+          reason: string | null
+          received_id: string | null
+          total: number | null
+          updated_at: string
+          user_id: string
+          vendor_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          issue_date?: string
+          note_id: string
+          note_type: string
+          purchase_order_id?: string | null
+          reason?: string | null
+          received_id?: string | null
+          total?: number | null
+          updated_at?: string
+          user_id: string
+          vendor_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          issue_date?: string
+          note_id?: string
+          note_type?: string
+          purchase_order_id?: string | null
+          reason?: string | null
+          received_id?: string | null
+          total?: number | null
+          updated_at?: string
+          user_id?: string
+          vendor_name?: string | null
+        }
+        Relationships: []
+      }
       distributors: {
         Row: {
           address: string
@@ -262,6 +360,80 @@ export type Database = {
           rack?: string | null
           stock?: number
           unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      issue_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          issue_order_id: string
+          item_id: string
+          item_name: string
+          quantity: number
+          remark: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          issue_order_id: string
+          item_id: string
+          item_name: string
+          quantity?: number
+          remark?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          issue_order_id?: string
+          item_id?: string
+          item_name?: string
+          quantity?: number
+          remark?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_order_items_issue_order_id_fkey"
+            columns: ["issue_order_id"]
+            isOneToOne: false
+            referencedRelation: "issue_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issue_orders: {
+        Row: {
+          created_at: string
+          employee_name: string
+          employee_type: string
+          id: string
+          issue_date: string
+          remark: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          employee_name: string
+          employee_type: string
+          id?: string
+          issue_date?: string
+          remark?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          employee_name?: string
+          employee_type?: string
+          id?: string
+          issue_date?: string
+          remark?: string | null
           updated_at?: string
           user_id?: string
         }
