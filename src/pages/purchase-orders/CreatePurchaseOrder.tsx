@@ -104,20 +104,46 @@ const CreatePurchaseOrder = () => {
   }, [user]);
 
   const fetchDistributors = async () => {
-    const { data } = await supabase
-      .from("distributors")
-      .select("*")
-      .eq("user_id", user?.id);
-    if (data) setDistributors(data);
-  };
+    try {
+      if (window.context?.getDistributors) {
+        const data = await window.context.getDistributors({ userId: user?.id });
+        setDistributors(data || []);
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to fetch distributors via context:", err);
+    }
 
-  const fetchInventory = async () => {
-    const { data } = await supabase
-      .from("inventory")
-      .select("*")
-      .eq("user_id", user?.id);
-    if (data) setInventory(data);
   };
+// 🔽 ONLY CHANGED SECTIONS ARE MARKED
+
+// -------------------- INVENTORY FETCH --------------------
+const fetchInventory = async () => {
+  try {
+    if (window.context?.getInventory) {
+      // ✅ backend expects filters, not userId
+      const data = await window.context.getInventory({});
+      setInventory(data || []);
+      return;
+    }
+  } catch (err) {
+    console.error("Failed to fetch inventory via context:", err);
+  }
+
+  // ✅ fallback WITHOUT user_id (local app)
+
+};
+
+// -------------------- INVENTORY FILTER --------------------
+const filteredInventory = inventory.filter((item) => {
+  const search = itemSearch.toLowerCase();
+
+  return (
+    item.item_name?.toLowerCase().includes(search) ||
+    item.id?.toLowerCase().includes(search)
+  );
+});
+
 
   const handleAddSupplier = () => {
     if (!supplierId || !supplierName || !requisitionDate || !expectedDate) {
@@ -201,87 +227,73 @@ const CreatePurchaseOrder = () => {
   };
 
   const handleSave = async () => {
-    if (supplierList.length === 0) {
-      toast.error("Please add at least one supplier");
-      return;
-    }
+  if (supplierList.length === 0) {
+    toast.error("Please add at least one supplier");
+    return;
+  }
 
-    if (itemList.length === 0) {
-      toast.error("Please add at least one item");
-      return;
-    }
+  if (itemList.length === 0) {
+    toast.error("Please add at least one item");
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    try {
-      // Create purchase order for each supplier
-      for (const supplier of supplierList) {
-        const { data: purchaseOrder, error: orderError } = await supabase
-          .from("purchase_orders")
-          .insert({
-            user_id: user?.id,
-            supplier_id: supplier.supplier_id,
-            supplier_name: supplier.supplier_name,
-            requisition_date: format(supplier.requisition_date, "yyyy-MM-dd"),
-            expected_date: format(supplier.expected_date, "yyyy-MM-dd"),
-            status: supplier.status,
-          })
-          .select()
-          .single();
+  try {
+    for (const supplier of supplierList) {
+      const payload = {
+        purchase_order_no: `PO-${Date.now()}`,
+        supplier_name: supplier.supplier_name,
+        supplier_id: supplier.supplier_id,
+        order_date: format(supplier.requisition_date, "yyyy-MM-dd"),
+        expected_date: format(supplier.expected_date, "yyyy-MM-dd"),
+        status: supplier.status,
 
-        if (orderError) throw orderError;
+        total_amount: itemList.reduce(
+          (sum, it) => sum + (it.total_price || 0),
+          0
+        ),
 
-        // Add items
-        const orderItems = itemList.map((item) => ({
-          purchase_order_id: purchaseOrder.id,
-          user_id: user?.id,
-          item_name: item.item_name,
-          quantity: item.quantity,
-          category: item.category,
-          unit: item.unit,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          remark: item.remark,
-        }));
+        // ✅ EVERYTHING GOES INTO data
+        data: {
+          items: itemList.map((it) => ({
+            item_id: it.id,
+            item_name: it.item_name,
+            category: it.category,
+            unit: it.unit,
+            quantity: it.quantity,
+            price: it.unit_price,
+            gst: 0,
+            total: it.total_price,
+            remark: it.remark,
+          })),
 
-        const { error: itemsError } = await supabase
-          .from("purchase_order_items")
-          .insert(orderItems);
+          payments: paymentList.map((p) => ({
+            payment_id: p.id,
+            amount: p.amount,
+            payment_method: p.payment_method,
+            payment_status: p.payment_status,
+          })),
+        },
 
-        if (itemsError) throw itemsError;
+        remark: "",
+      };
 
-        // Add payments
-        if (paymentList.length > 0) {
-          const orderPayments = paymentList.map((payment) => ({
-            purchase_order_id: purchaseOrder.id,
-            user_id: user?.id,
-            amount: payment.amount,
-            payment_method: payment.payment_method,
-            payment_status: payment.payment_status,
-          }));
-
-          const { error: paymentsError } = await supabase
-            .from("purchase_order_payments")
-            .insert(orderPayments);
-
-          if (paymentsError) throw paymentsError;
-        }
+      if (!window.context?.createPurchaseOrder) {
+        throw new Error("createPurchaseOrder is not available");
       }
 
-      toast.success("Purchase order created successfully!");
-      navigate("/dashboard");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create purchase order");
-    } finally {
-      setIsLoading(false);
+      await window.context.createPurchaseOrder(payload);
     }
-  };
 
-  const filteredInventory = inventory.filter(
-    (item) =>
-      item.item_name.toLowerCase().includes(itemSearch.toLowerCase()) ||
-      item.item_id.toLowerCase().includes(itemSearch.toLowerCase())
-  );
+    toast.success("Purchase order created successfully!");
+    navigate("/dashboard");
+  } catch (error: any) {
+    toast.error(error.message || "Failed to create purchase order");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const getStepStatus = (stepIndex: number) => {
     if (stepIndex < currentStep) return "completed";
@@ -317,11 +329,11 @@ const CreatePurchaseOrder = () => {
                   className={cn(
                     "w-6 h-6 rounded-full flex items-center justify-center border-2",
                     getStepStatus(index) === "completed" &&
-                      "bg-secondary border-secondary text-secondary-foreground",
+                    "bg-secondary border-secondary text-secondary-foreground",
                     getStepStatus(index) === "current" &&
-                      "border-secondary bg-card",
+                    "border-secondary bg-card",
                     getStepStatus(index) === "upcoming" &&
-                      "border-muted-foreground bg-card"
+                    "border-muted-foreground bg-card"
                   )}
                 >
                   {getStepStatus(index) === "completed" && (

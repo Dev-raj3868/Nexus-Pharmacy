@@ -2,23 +2,56 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+
+// Type definitions for window.context
+// declare global {
+//   interface Window {
+//     context: {
+//       [x: string]: any;
+//       getInventory?: (filters?: { name?: string; category?: string }) => Promise<any[]>;
+//       createDistributor: (data: any) => Promise<string>;
+//       writeDistributor: (id: string, data: string) => Promise<void>;
+//     };
+//   }
+// }
 
 const GetInventorySearch = () => {
   const navigate = useNavigate();
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = () => {
-    const params = new URLSearchParams();
-    if (itemName) params.set("itemName", itemName);
-    if (category) params.set("category", category);
-    navigate(`/dashboard/get-inventory/list?${params.toString()}`);
+  const handleSearch = async () => {
+    setLoading(true);
+    try {
+      const data = await window.context.getInventory({
+        name: itemName || undefined,
+        category: category || undefined,
+      });
+      navigate("/dashboard/get-inventory/list", {
+        state: { items: data },
+      });
+    } catch (error) {
+      console.error("Failed to search inventory:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGetAll = () => {
-    navigate("/dashboard/get-inventory/list?all=true");
+  const handleGetAll = async () => {
+    setLoading(true);
+    try {
+      const data = await window.context.getInventory();
+      navigate("/dashboard/get-inventory/list", {
+        state: { items: data },
+      });
+    } catch (error) {
+      console.error("Failed to fetch all inventory:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,6 +67,7 @@ const GetInventorySearch = () => {
                 value={itemName}
                 onChange={(e) => setItemName(e.target.value)}
                 className="pl-10"
+                disabled={loading}
               />
             </div>
 
@@ -45,6 +79,7 @@ const GetInventorySearch = () => {
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="pl-10"
+                disabled={loading}
               />
             </div>
 
@@ -52,12 +87,18 @@ const GetInventorySearch = () => {
             <div className="flex items-center gap-4 pt-2">
               <button
                 onClick={handleGetAll}
-                className="text-primary font-medium text-sm hover:underline"
+                className="text-primary font-medium text-sm hover:underline disabled:opacity-50"
+                disabled={loading}
               >
                 GET ALL
               </button>
-              <Button onClick={handleSearch} className="px-8">
-                Search
+              <Button
+                onClick={handleSearch}
+                className="px-8"
+                disabled={loading}
+              >
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {loading ? "Searching..." : "Search"}
               </Button>
             </div>
           </div>

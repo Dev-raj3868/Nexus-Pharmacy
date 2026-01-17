@@ -71,53 +71,39 @@ const GetBillTemplate = () => {
   });
 
   const handleSearch = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    setSearched(true);
+  setLoading(true)
+  setSearched(true)
 
-    try {
-      let query = supabase
-        .from("bills")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+  try {
+    const data = await window.context.getInvoices({
+      billId: searchId,
+      patientName,
+      phoneNumber,
+      billDate: searchDate
+        ? format(searchDate, 'yyyy-MM-dd')
+        : undefined
+    })
 
-      if (searchId.trim()) {
-        query = query.ilike("bill_number", `%${searchId}%`);
-      }
-      if (patientName.trim()) {
-        query = query.ilike("patient_name", `%${patientName}%`);
-      }
-      if (phoneNumber.trim()) {
-        query = query.ilike("patient_phone", `%${phoneNumber}%`);
-      }
-      if (searchDate) {
-        query = query.eq("bill_date", format(searchDate, "yyyy-MM-dd"));
-      }
+    setBills(data || [])
+    setCurrentPage(1)
+  } catch (err: any) {
+    toast({
+      title: 'Error',
+      description: err.message || 'Failed to fetch bills',
+      variant: 'destructive'
+    })
+    setBills([])
+  } finally {
+    setLoading(false)
+  }
+}
 
-      const { data, error } = await query;
+  const handleViewBill = async (bill: Bill) => {
+  const fullBill = await window.context.getInvoiceById(bill.id)
+  setSelectedBill({ ...bill, ...fullBill })
+  setDetailOpen(true)
+}
 
-      if (error) throw error;
-
-      setBills(data || []);
-      setCurrentPage(1);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch bills",
-        variant: "destructive",
-      });
-      setBills([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleViewBill = (bill: Bill) => {
-    setSelectedBill(bill);
-    setDetailOpen(true);
-  };
 
   const filteredBills = searchPatientFilter
     ? bills.filter((bill) =>

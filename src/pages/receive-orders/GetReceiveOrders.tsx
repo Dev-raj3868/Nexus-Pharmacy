@@ -24,7 +24,6 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Search, CalendarIcon, FileText, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -57,6 +56,7 @@ const GetReceiveOrders = () => {
   const [orders, setOrders] = useState<ReceiveOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [rawMaterials, setRawMaterials] = useState<any | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 14;
@@ -65,66 +65,204 @@ const GetReceiveOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState<ReceiveOrder | null>(null);
   const [orderItems, setOrderItems] = useState<ReceiveOrderItem[]>([]);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [rawSelected, setRawSelected] = useState<any | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Helper: pick first available key from variants
+  const pick = (obj: any, keys: string[], fallback: any = "") => {
+    if (!obj) return fallback;
+    for (const k of keys) {
+      if (obj[k] !== undefined && obj[k] !== null) return obj[k];
+    }
+    return fallback;
+  };
+
+  // Normalize a raw product entry into the UI's ReceiveOrderItem shape
+  const normalizeProducts = (rawData: any): ReceiveOrderItem[] => {
+    if (!rawData) return [];
+
+    // Try to locate an array of product entries in several common locations
+    let products: any[] = [];
+    try {
+      if (typeof rawData === "string") {
+        const parsed = JSON.parse(rawData);
+        // parsed could be array or object with products/productDetails
+        products = Array.isArray(parsed)
+          ? parsed
+          : parsed.products || parsed.productDetails || [];
+      } else if (Array.isArray(rawData)) {
+        products = rawData;
+      } else {
+        // check nested shapes: rawData, rawData.data, rawData.data.data, etc.
+        const candidates = [
+          rawData.productDetails,
+          rawData.products,
+          rawData.data?.products,
+          rawData.data?.productDetails,
+          rawData.data?.data?.products,
+          rawData.data?.data?.productDetails,
+          rawData.data,
+        ];
+
+        const found = candidates.find((c) => Array.isArray(c));
+        if (found) products = found as any[];
+        else if (Array.isArray(rawData)) products = rawData;
+        else products = [rawData];
+      }
+    } catch (err) {
+      console.error("Failed to parse product data", err);
+      products = [];
+    }
+
+    return products.map((p: any, idx: number) => {
+      // Unwrap common wrappers
+      const entry = p.product || p.item || p.productDetails || p;
+
+      const rawQty = pick(entry, [
+        "received_quantity",
+        "receivedQuantity",
+        "received_qty",
+        "receivedQty",
+        "receivedQty",
+        "qty",
+        "quantity",
+        "quantity_received",
+        "received",
+        "receivedQty",
+      ], 0);
+
+      const rawPrice = pick(entry, [
+        "price_per_quantity",
+        "pricePerQuantity",
+        "price_per_unit",
+        "price",
+        "rate",
+        "amount",
+        "mrp",
+      ], 0);
+
+      const qty = typeof rawQty === "string" ? parseFloat(rawQty) || 0 : Number(rawQty || 0);
+      const price = typeof rawPrice === "string" ? parseFloat(rawPrice) || 0 : Number(rawPrice || 0);
+
+      return {
+        id: pick(entry, ["id", "item_id", "itemId", "sku"], `p-${idx}`),
+        item_name: pick(entry, ["item_name", "itemName", "name", "product_name", "productName"], "-"),
+        received_quantity: qty,
+        unit: pick(entry, ["unit", "uom", "pack"], "-"),
+        price_per_quantity: price,
+        batch_no: pick(entry, ["batch_no", "batchNo", "batch", "batchNumber"], "-"),
+        gst: pick(entry, ["gst", "tax", "gst_percent", "gstPercent"], "-"),
+        remark: pick(entry, ["remark", "reason", "notes"], "-"),
+      };
+    });
+  };
 
   const handleSearch = async () => {
     if (!user) return;
     setIsLoading(true);
     setHasSearched(true);
+    try {
+      // If a specific receive id is provided, fetch single by id
+      if (receiveId && window.context?.getReceiveMaterialById) {
+        const res = await window.context.getReceiveMaterialById(receiveId);
+        if (res) {
+          // map backend shape to existing UI shape
+          const mapped = {
+            id: res.id,
+            purchase_id: res.purchaseId || res.purchase_id || "",
+            vendor_name: res.vendorName || res.vendor_name || "",
+            payment_status: res.paymentStatus || res.payment_status || "",
+            created_at: res.createdAt || res.created_at || new Date().toISOString(),
+            user_id: res.userId || res.user_id || "",
+            raw: res,
+          };
+          setOrders([mapped]);
+          setTotalPages(1);
+        } else {
+          setOrders([]);
+          setTotalPages(1);
+        }
 
-    let query = supabase
-      .from("receive_orders")
-      .select("*", { count: "exact" })
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+        setIsLoading(false);
+        return;
+      }
 
-    if (receiveId) {
-      query = query.ilike("id", `%${receiveId}%`);
+      // Build filter object for context call
+      const filters: any = { userId: user.id };
+      if (fromDate) filters.fromDate = new Date(format(fromDate, "yyyy-MM-dd")).getTime();
+      if (toDate) filters.toDate = new Date(format(toDate, "yyyy-MM-dd") + "T23:59:59").getTime();
+
+      if (!window.context?.getReceiveMaterials) {
+        console.warn("getReceiveMaterials not available on window.context");
+        setOrders([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const data = await window.context.getReceiveMaterials(filters);
+      console.log("getReceiveMaterials result:", data);
+      setRawMaterials(data ?? null);
+
+      if (Array.isArray(data)) {
+        // map backend rows to the UI-friendly shape
+        const mapped = data.map((res: any) => ({
+          id: res.id,
+          purchase_id: res.purchaseId || res.purchase_id || "",
+          vendor_name: res.vendorName || res.vendor_name || "",
+          payment_status: res.paymentStatus || res.payment_status || "",
+          created_at: res.createdAt || res.created_at || new Date().toISOString(),
+          user_id: res.userId || res.user_id || "",
+          raw: res,
+        }));
+
+        setOrders(mapped);
+        // pagination: backend may not return count, so derive pages from length
+        setTotalPages(Math.max(1, Math.ceil(mapped.length / itemsPerPage)));
+      } else {
+        setOrders([]);
+        setTotalPages(1);
+      }
+    } catch (err) {
+      console.error("Failed to fetch receive orders via context:", err);
+      setOrders([]);
+      setTotalPages(1);
+    } finally {
+      setIsLoading(false);
     }
-
-    if (fromDate) {
-      query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
-    }
-
-    if (toDate) {
-      query = query.lte("created_at", format(toDate, "yyyy-MM-dd") + "T23:59:59");
-    }
-
-    const from = (currentPage - 1) * itemsPerPage;
-    const to = from + itemsPerPage - 1;
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
-
-    if (!error && data) {
-      setOrders(data);
-      setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-    }
-
-    setIsLoading(false);
   };
 
   const handleViewDetails = async (order: ReceiveOrder) => {
     setSelectedOrder(order);
-    
-    const { data, error } = await supabase
-      .from("receive_order_items")
-      .select("*")
-      .eq("receive_order_id", order.id);
-
-    if (!error && data) {
-      setOrderItems(data);
+    try {
+      if (window.context?.getReceiveMaterialById) {
+        const res = await window.context.getReceiveMaterialById(order.id);
+        console.log("getReceiveMaterialById result:", res);
+        setRawSelected(res ?? null);
+        if (res) {
+          // pass full response to normalizer; it will look through nested paths
+          const normalized = normalizeProducts(res);
+          setOrderItems(normalized);
+        } else {
+          setOrderItems([]);
+        }
+      } else {
+        setOrderItems([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch receive order items via context:", err);
+      setOrderItems([]);
     }
-    
+
     setIsDetailOpen(true);
   };
 
   const renderPagination = () => {
     const pages = [];
     const maxVisible = 5;
-    
+
     let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(totalPages, start + maxVisible - 1);
-    
+
     if (end - start < maxVisible - 1) {
       start = Math.max(1, end - maxVisible + 1);
     }
@@ -145,7 +283,7 @@ const GetReceiveOrders = () => {
           <ChevronLeft className="w-4 h-4 mr-1" />
           Previous
         </Button>
-        
+
         {pages.map(page => (
           <Button
             key={page}
@@ -157,7 +295,7 @@ const GetReceiveOrders = () => {
             {page}
           </Button>
         ))}
-        
+
         {end < totalPages && (
           <>
             <span className="text-muted-foreground">...</span>
@@ -170,7 +308,7 @@ const GetReceiveOrders = () => {
             </Button>
           </>
         )}
-        
+
         <Button
           variant="outline"
           size="sm"
@@ -305,7 +443,7 @@ const GetReceiveOrders = () => {
                       </TableCell>
                       <TableCell className="text-sm">{order.vendor_name}</TableCell>
                       <TableCell>
-                        <button 
+                        <button
                           onClick={() => handleViewDetails(order)}
                           className="text-primary hover:text-primary/80"
                         >
@@ -317,7 +455,7 @@ const GetReceiveOrders = () => {
                 )}
               </TableBody>
             </Table>
-            
+
             {orders.length > 0 && renderPagination()}
           </div>
         )}
@@ -357,7 +495,7 @@ const GetReceiveOrders = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-4 mt-4">
                   <div>
                     <Label className="text-sm text-muted-foreground">Payment Status</Label>

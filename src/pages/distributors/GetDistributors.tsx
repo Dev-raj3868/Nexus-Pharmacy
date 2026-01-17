@@ -37,32 +37,40 @@ const GetDistributors = () => {
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-  const fetchDistributors = async () => {
-    if (!user || !searchQuery) return;
+ const fetchDistributors = async () => {
+  if (!user || !searchQuery) return
 
-    setLoading(true);
-    try {
-      let query = supabase
-        .from("distributors")
-        .select("*", { count: "exact" })
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .ilike("supplier_name", `%${searchQuery}%`);
-
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-
-      const { data, count, error } = await query.range(from, to);
-      if (error) throw error;
-
-      setDistributors(data || []);
-      setTotalCount(count || 0);
-    } catch (error: any) {
-      toast.error(error.message || "Error fetching data");
-    } finally {
-      setLoading(false);
+  setLoading(true)
+  try {
+    /* -------------------------------
+       1️⃣ ELECTRON (LOCAL DB)
+    --------------------------------*/
+    const filters = {
+      supplier_name: searchQuery
     }
-  };
+
+    const localResults = await window.context.getDistributors(filters)
+
+    /* -------------------------------
+       2️⃣ SUPABASE (CLOUD)
+    --------------------------------*/
+    const from = (currentPage - 1) * ITEMS_PER_PAGE
+    const to = from + ITEMS_PER_PAGE - 1
+
+ 
+    /* -------------------------------
+       3️⃣ UPDATE UI
+    --------------------------------*/
+    setDistributors( localResults || [])
+    setTotalCount(localResults.length)
+
+  } catch (error: any) {
+    toast.error(error.message || "Error fetching data")
+  } finally {
+    setLoading(false)
+  }
+}
+
 
   const handleSearch = () => {
     if (!searchTerm.trim()) {

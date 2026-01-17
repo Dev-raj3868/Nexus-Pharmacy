@@ -149,55 +149,34 @@ const CreateBillTemplate = () => {
     });
   };
 
-  const handleSave = async () => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to save a template",
-        variant: "destructive",
-      });
-      return;
-    }
+const handleSave = async () => {
+  if (!config.templateName.trim()) {
+    toast({
+      title: "Error",
+      description: "Please enter a template name",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    if (!config.templateName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a template name",
-        variant: "destructive",
-      });
-      return;
-    }
+  setSaving(true);
+  try {
+    await window.context.createInvoice(config);
 
-    setSaving(true);
-    try {
-      const { error } = await supabase.from("bill_templates").insert({
-        user_id: user.id,
-        template_name: config.templateName,
-        pharmacy_enabled: config.pharmacyEnabled,
-        drug_license_enabled: config.drugLicenseEnabled,
-        patient_enabled: config.patientEnabled,
-        item_enabled: config.itemEnabled,
-        gst_enabled: config.gstEnabled,
-        payment_enabled: config.paymentEnabled,
-        declaration_enabled: config.declarationEnabled,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Bill template saved successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save template",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+    toast({
+      title: "Success",
+      description: "Bill template saved successfully",
+    });
+  } catch (error: any) {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to save template",
+      variant: "destructive",
+    });
+  } finally {
+    setSaving(false);
+  }
+};
 
   const ToggleField = ({ 
     label, 

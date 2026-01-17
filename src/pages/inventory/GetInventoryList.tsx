@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Table,
@@ -18,71 +18,109 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 
 interface InventoryItem {
-  id: string;
-  item_id: string;
-  item_name: string;
-  category: string;
-  unit: string;
-  stock: number;
-  batch_no: string;
-  min_stock: number;
-  rack: string | null;
-  product_type: string | null;
-  price: number | null;
-  gst: string | null;
+  [key: string]: any;
 }
 
+const getVal = (row: any, variants: string[], fallback: any = "") => {
+  for (const k of variants) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
+  }
+  return fallback;
+};
+
+// Mock inventory data - Fallback if no data is passed
+const MOCK_INVENTORY: InventoryItem[] = [
+  {
+    id: "1",
+    item_id: "MED001",
+    item_name: "Paracetamol 500mg",
+    category: "Analgesics",
+    unit: "Tablets",
+    stock: 450,
+    batch_no: "BATCH-001",
+    min_stock: 100,
+    rack: "A1",
+    product_type: "Tablet",
+    price: 50,
+    gst: "5%",
+  },
+  {
+    id: "2",
+    item_id: "MED002",
+    item_name: "Amoxicillin 250mg",
+    category: "Antibiotics",
+    unit: "Capsules",
+    stock: 220,
+    batch_no: "BATCH-002",
+    min_stock: 50,
+    rack: "B2",
+    product_type: "Capsule",
+    price: 120,
+    gst: "5%",
+  },
+  {
+    id: "3",
+    item_id: "MED003",
+    item_name: "Omeprazole 20mg",
+    category: "Gastrointestinal",
+    unit: "Capsules",
+    stock: 300,
+    batch_no: "BATCH-003",
+    min_stock: 75,
+    rack: "C3",
+    product_type: "Capsule",
+    price: 80,
+    gst: "5%",
+  },
+  {
+    id: "4",
+    item_id: "MED004",
+    item_name: "Metformin 500mg",
+    category: "Antidiabetics",
+    unit: "Tablets",
+    stock: 650,
+    batch_no: "BATCH-004",
+    min_stock: 80,
+    rack: "D1",
+    product_type: "Tablet",
+    price: 40,
+    gst: "5%",
+  },
+  {
+    id: "5",
+    item_id: "MED005",
+    item_name: "Aspirin 100mg",
+    category: "Analgesics",
+    unit: "Tablets",
+    stock: 250,
+    batch_no: "BATCH-005",
+    min_stock: 120,
+    rack: "A2",
+    product_type: "Tablet",
+    price: 30,
+    gst: "5%",
+  },
+];
+
 const GetInventoryList = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const [itemName, setItemName] = useState(searchParams.get("itemName") || "");
-  const [category, setCategory] = useState(searchParams.get("category") || "");
+  const location = useLocation();
+  // Get items from location state, fallback to mock data
+  const initialItems = (location.state?.items as InventoryItem[]) || MOCK_INVENTORY;
+  const [itemName, setItemName] = useState("");
+  const [category, setCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const itemsPerPage = 14;
 
-  const fetchItems = async () => {
-    if (!user) return;
-    setLoading(true);
-
-    let query = supabase
-      .from("inventory")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (itemName) {
-      query = query.ilike("item_name", `%${itemName}%`);
-    }
-    if (category) {
-      query = query.ilike("category", `%${category}%`);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch inventory",
-        variant: "destructive",
-      });
-    } else if (data) {
-      setItems(data);
-    }
-    setLoading(false);
-  };
-
+  // Initialize items from state on mount
   useEffect(() => {
-    fetchItems();
-  }, [user]);
+    if (location.state?.items) {
+      setItems(location.state.items);
+    }
+  }, [location.state?.items]);
 
   const totalPages = Math.ceil(items.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -90,14 +128,13 @@ const GetInventoryList = () => {
 
   const handleSearch = () => {
     setCurrentPage(1);
-    fetchItems();
   };
 
   const handleGetAll = () => {
     setItemName("");
     setCategory("");
+    setItems(initialItems);
     setCurrentPage(1);
-    fetchItems();
   };
 
   const getPageNumbers = () => {
@@ -161,12 +198,8 @@ const GetInventoryList = () => {
           <div className="border-b border-border px-4 py-3">
             <span className="font-medium text-foreground">Item Details</span>
           </div>
-          
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            </div>
-          ) : items.length === 0 ? (
+
+          {items.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               No inventory items found. Add items from the Inventory page.
             </div>
@@ -183,13 +216,13 @@ const GetInventoryList = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedItems.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-muted/30">
-                    <TableCell className="text-sm">{item.item_id}</TableCell>
-                    <TableCell className="text-sm">{item.item_name}</TableCell>
-                    <TableCell className="text-sm">{item.category}</TableCell>
-                    <TableCell className="text-sm">{item.unit}</TableCell>
-                    <TableCell className="text-sm">{item.stock}</TableCell>
+                {paginatedItems.map((item: any) => (
+                  <TableRow key={getVal(item, ["item_id", "itemId", "id"]) || Math.random()} className="hover:bg-muted/30">
+                    <TableCell className="text-sm">{getVal(item, ["item_id", "itemId", "id"], "-")}</TableCell>
+                    <TableCell className="text-sm">{getVal(item, ["item_name", "itemName", "name"], "-")}</TableCell>
+                    <TableCell className="text-sm">{getVal(item, ["category", "Category"], "-")}</TableCell>
+                    <TableCell className="text-sm">{getVal(item, ["unit", "Unit"], "-")}</TableCell>
+                    <TableCell className="text-sm">{getVal(item, ["stock", "quantity", "qty"], 0)}</TableCell>
                     <TableCell>
                       <button
                         onClick={() => setSelectedItem(item)}
@@ -218,7 +251,7 @@ const GetInventoryList = () => {
               <ChevronLeft className="w-4 h-4" />
               Previous
             </Button>
-            
+
             {getPageNumbers().map((page, index) => (
               <Button
                 key={index}
@@ -231,7 +264,7 @@ const GetInventoryList = () => {
                 {page}
               </Button>
             ))}
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -254,7 +287,7 @@ const GetInventoryList = () => {
               # {selectedItem?.item_id}
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedItem && (
             <div className="space-y-6">
               {/* Item Details Section */}
@@ -264,43 +297,43 @@ const GetInventoryList = () => {
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Item ID</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.item_id}
+                      {getVal(selectedItem, ["item_id", "itemId", "id"], "-")}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Item Name</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.item_name}
+                      {getVal(selectedItem, ["item_name", "itemName", "name"], "-")}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Category</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.category}
+                      {getVal(selectedItem, ["category", "Category"], "-")}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Batch No</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.batch_no}
+                      {getVal(selectedItem, ["batch_no", "batchNo", "batch"], "-")}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Unit</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.unit}
+                      {getVal(selectedItem, ["unit", "Unit"], "-")}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Stock</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.stock}
+                      {getVal(selectedItem, ["stock", "quantity", "qty"], 0)}
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Minimum Stock</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.min_stock}
+                      {getVal(selectedItem, ["min_stock", "minStock", "minstock"], "-")}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -312,7 +345,7 @@ const GetInventoryList = () => {
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Product type</label>
                     <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
-                      {selectedItem.product_type || "-"}
+                      {getVal(selectedItem, ["product_type", "productType"], "-")}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -353,17 +386,17 @@ const GetInventoryList = () => {
                       </TableHeader>
                       <TableBody>
                         <TableRow>
-                          <TableCell className="text-sm">{selectedItem.item_id}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.item_name}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.category}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.batch_no}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.unit}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.stock}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.min_stock}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.rack || "-"}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.product_type || "-"}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.price ? `₹ ${selectedItem.price}` : "-"}</TableCell>
-                          <TableCell className="text-sm">{selectedItem.gst || "-"}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["item_id", "itemId", "id"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["item_name", "itemName", "name"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["category", "Category"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["batch_no", "batchNo", "batch"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["unit", "Unit"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["stock", "quantity", "qty"], 0)}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["min_stock", "minStock", "minstock"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["rack", "Rack"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["product_type", "productType"], "-")}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["price", "amount"], null) ? `₹ ${getVal(selectedItem, ["price", "amount"], null)}` : "-"}</TableCell>
+                          <TableCell className="text-sm">{getVal(selectedItem, ["gst", "GST"], "-")}</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>

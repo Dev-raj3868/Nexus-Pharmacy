@@ -92,60 +92,120 @@ const GetPurchaseOrders = () => {
     if (!user) return;
     setLoading(true);
     setSearched(true);
+    try {
+      const filters: any = {};
+      if (purchaseId) filters.purchase_order_no = purchaseId;
+      if (vendorName) filters.supplier_name = vendorName;
+      if (fromDate) filters.fromDate = format(fromDate, "yyyy-MM-dd");
+      if (toDate) filters.toDate = format(toDate, "yyyy-MM-dd");
 
-    let query = supabase
-      .from("purchase_orders")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      if (window.context?.getPurchaseOrders) {
+        const rows = await window.context.getPurchaseOrders(filters);
+        console.log("getPurchaseOrders result:", rows);
+        const mapped = (rows || []).map((r: any) => ({
+          id: r.id,
+          supplier_id: r.supplier_id || r.supplierId || r.purchase_order_no || "",
+          supplier_name: r.supplier_name || r.supplierName || r.supplier || "",
+          requisition_date: r.order_date || r.requisition_date || r.data?.order_date || r.data?.requisition_date || new Date().toISOString(),
+          expected_date: r.expected_date || r.data?.expected_date || "",
+          status: r.status || "",
+          created_at: r.created_at || r.createdAt || new Date().toISOString(),
+          raw: r,
+        }));
+        setOrders(mapped);
+        setCurrentPage(1);
+      } else {
+        // fallback to supabase if context not available
+        let query = supabase
+          .from("purchase_orders")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
 
-    if (purchaseId) {
-      query = query.ilike("supplier_id", `%${purchaseId}%`);
-    }
-    if (vendorName) {
-      query = query.ilike("supplier_name", `%${vendorName}%`);
-    }
-    if (fromDate) {
-      query = query.gte("requisition_date", format(fromDate, "yyyy-MM-dd"));
-    }
-    if (toDate) {
-      query = query.lte("requisition_date", format(toDate, "yyyy-MM-dd"));
-    }
+        if (purchaseId) query = query.ilike("supplier_id", `%${purchaseId}%`);
+        if (vendorName) query = query.ilike("supplier_name", `%${vendorName}%`);
+        if (fromDate) query = query.gte("requisition_date", format(fromDate, "yyyy-MM-dd"));
+        if (toDate) query = query.lte("requisition_date", format(toDate, "yyyy-MM-dd"));
 
-    const { data, error } = await query;
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch purchase orders",
-        variant: "destructive",
-      });
-    } else {
-      setOrders(data || []);
-      setCurrentPage(1);
+        const { data, error } = await query;
+        if (error) {
+          toast({ title: "Error", description: "Failed to fetch purchase orders", variant: "destructive" });
+        } else {
+          setOrders(data || []);
+          setCurrentPage(1);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch purchase orders:", err);
+      toast({ title: "Error", description: "Failed to fetch purchase orders", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleViewOrder = async (order: PurchaseOrder) => {
     setSelectedOrder(order);
     setSaved(false);
+    try {
+      if (window.context?.getPurchaseOrderById) {
+        const res = await window.context.getPurchaseOrderById(order.id);
+        console.log("getPurchaseOrderById result:", res);
+        // res.data should be parsed by backend; it may contain `items` or `data.items` or `data.productDetails`
+const raw = res
 
-    // Fetch order items
-    const { data: items } = await supabase
-      .from("purchase_order_items")
-      .select("*")
-      .eq("purchase_order_id", order.id);
+// 🔥 normalize deeply
+const normalizedData =
+  raw?.data?.data ||   // <-- THIS FIX
+  raw?.data ||
+  {}
 
-    // Fetch order payments
-    const { data: payments } = await supabase
-      .from("purchase_order_payments")
-      .select("*")
-      .eq("purchase_order_id", order.id);
+const items =
+  normalizedData.items ||
+  raw?.items ||
+  []
 
-    setOrderItems(items || []);
-    setOrderPayments(payments || []);
-    setIsModalOpen(true);
+const payments =
+  normalizedData.payments ||
+  raw?.payments ||
+  []
+
+setOrderItems(items)
+setOrderPayments(payments)
+
+        // normalize items to PurchaseOrderItem shape
+        const normItems = (items || []).map((it: any, idx: number) => ({
+          id: it.id || it.item_id || it.itemId || `i-${idx}`,
+          item_name: it.item_name || it.itemName || it.name || "",
+          quantity: Number(it.quantity || it.qty || it.receivedQty || it.received_quantity || 0),
+          category: it.category || null,
+          unit_price: Number(it.unit_price || it.unitPrice || it.price || it.rate || 0),
+          unit: it.unit || "",
+          total_price: Number(it.total || it.total_price || it.totalPrice || 0),
+          remark: it.remark || it.notes || null,
+        }));
+
+        const normPayments = (payments || []).map((p: any, idx: number) => ({
+          id: p.id || `pay-${idx}`,
+          amount: Number(p.amount || p.value || 0),
+          payment_method: p.payment_method || p.method || "",
+          payment_status: p.payment_status || p.status || "",
+        }));
+
+        setOrderItems(normItems);
+        setOrderPayments(normPayments);
+        setIsModalOpen(true);
+      } else {
+        // fallback: clear
+        setOrderItems([]);
+        setOrderPayments([]);
+        setIsModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to load purchase order details:", err);
+      setOrderItems([]);
+      setOrderPayments([]);
+      setIsModalOpen(true);
+    }
   };
 
   const handleSave = () => {
@@ -278,11 +338,19 @@ const GetPurchaseOrders = () => {
                     <TableCell>{order.supplier_name}</TableCell>
                     <TableCell>{format(new Date(order.requisition_date), "dd-MM-yy")}</TableCell>
                     <TableCell>{format(new Date(order.expected_date), "dd-MM-yy")}</TableCell>
-                    <TableCell>PAID</TableCell>
+                    <TableCell>
+  {orderPayments.length
+    ? orderPayments[0]?.payment_status
+    : "Pending"}
+</TableCell>
+
                     <TableCell className="text-success font-medium">
                       {order.status}
                     </TableCell>
-                    <TableCell>₹ XXXXXX</TableCell>
+                    <TableCell>
+  ₹ {orderPayments.reduce((s, p) => s + Number(p.amount), 0)}
+</TableCell>
+
                     <TableCell>
                       <button
                         onClick={() => handleViewOrder(order)}

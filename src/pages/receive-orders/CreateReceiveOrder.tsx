@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/table";
 import { Search, Trash2, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -80,14 +79,13 @@ const CreateReceiveOrder = () => {
   }, [user]);
 
   const fetchPurchaseOrders = async () => {
-    const { data, error } = await supabase
-      .from("purchase_orders")
-      .select("*")
-      .eq("user_id", user?.id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setExistingPurchaseOrders(data);
+    try {
+      if (window.context?.getPurchaseOrders) {
+        const data = await window.context.getPurchaseOrders({ userId: user?.id });
+        setExistingPurchaseOrders(data || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch purchase orders via context:", err);
     }
   };
 
@@ -166,47 +164,42 @@ const CreateReceiveOrder = () => {
     setIsLoading(true);
 
     try {
-      // Create receive order for each purchase detail
+      // Create receive order for each purchase detail via Electron context
       for (const purchase of purchaseDetails) {
-        const { data: receiveOrder, error: orderError } = await supabase
-          .from("receive_orders")
-          .insert({
-            user_id: user?.id,
-            purchase_id: purchase.purchase_id,
-            payment_status: purchase.payment_status,
-            delivery_status: purchase.delivery_status,
-            vendor_name: purchase.vendor_name,
-          })
-          .select()
-          .single();
+        const payload = {
+          purchaseDetails: {
+            purchaseId: purchase.purchase_id,
+            paymentStatus: purchase.payment_status,
+            deliveryStatus: purchase.delivery_status,
+            vendorName: purchase.vendor_name,
+          },
+          data: {
+            products: productDetails.map((product) => ({
+              id: product.id,
+              item_id: product.item_id,
+              item_name: product.item_name,
+              category: product.category,
+              unit: product.unit,
+              received_quantity: product.received_quantity,
+              batch_no: product.batch_no,
+              price_per_quantity: product.price_per_quantity,
+              gst: product.gst,
+              remark: product.remark,
+            })),
+          },
+        };
 
-        if (orderError) throw orderError;
+        if (!window.context?.createReceiveMaterial) {
+          throw new Error("createReceiveMaterial is not available on window.context");
+        }
 
-        // Add all product details to this receive order
-        const orderItems = productDetails.map((product) => ({
-          receive_order_id: receiveOrder.id,
-          user_id: user?.id,
-          item_id: product.item_id,
-          item_name: product.item_name,
-          category: product.category,
-          unit: product.unit,
-          received_quantity: product.received_quantity,
-          batch_no: product.batch_no,
-          price_per_quantity: product.price_per_quantity,
-          gst: product.gst,
-          remark: product.remark,
-        }));
-
-        const { error: itemsError } = await supabase
-          .from("receive_order_items")
-          .insert(orderItems);
-
-        if (itemsError) throw itemsError;
+        await window.context.createReceiveMaterial(payload);
       }
 
       toast.success("Receive order created successfully!");
       navigate("/dashboard");
     } catch (error: any) {
+      console.error("Failed to create receive order:", error);
       toast.error(error.message || "Failed to create receive order");
     } finally {
       setIsLoading(false);

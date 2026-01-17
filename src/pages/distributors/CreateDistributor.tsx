@@ -16,6 +16,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 
+// declare global {
+//   interface Window {
+//     context: {
+//       [x: string]: any;
+//       createDistributor: (data: any) => Promise<string>;
+//       writeDistributor: (id: string, data: string) => Promise<void>;
+//     };
+//   }
+// }
+
 interface DistributorRow {
   id: string;
   supplier_name: string;
@@ -69,43 +79,65 @@ const CreateDistributor = () => {
     setDistributors((prev) => prev.filter((d) => d.id !== id));
   };
 
-  const handleSave = async () => {
-    if (!user) {
-      toast.error("Please login to save distributors");
-      return;
+const handleSave = async () => {
+  if (!user) {
+    toast.error("Please login to save distributors");
+    return;
+  }
+
+  if (distributors.length === 0) {
+    toast.error("Please add at least one distributor");
+    return;
+  }
+
+  setSaving(true);
+
+  try {
+    // 1️⃣ SAVE TO ELECTRON (LOCAL)
+    for (const distributor of distributors) {
+      const distributorId = await window.context.createDistributor(distributor);
+
+      await window.context.writeDistributor(
+        distributorId,
+        JSON.stringify(
+          {
+            ...distributor,
+            id: distributorId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          null,
+          2
+        )
+      );
     }
 
-    if (distributors.length === 0) {
-      toast.error("Please add at least one distributor");
-      return;
-    }
+    // 2️⃣ SAVE TO SUPABASE (CLOUD)
+    const distributorsToInsert = distributors.map((d) => ({
+      user_id: user.id,
+      supplier_name: d.supplier_name,
+      phone_number: d.phone_number,
+      email: d.email || null,
+      address: d.address,
+      remark: d.remark || null,
+    }));
 
-    setSaving(true);
-    try {
-      const distributorsToInsert = distributors.map((d) => ({
-        user_id: user.id,
-        supplier_name: d.supplier_name,
-        phone_number: d.phone_number,
-        email: d.email || null,
-        address: d.address,
-        remark: d.remark || null,
-      }));
+    const { error } = await supabase
+      .from("distributors")
+      .insert(distributorsToInsert);
 
-      const { error } = await supabase.from("distributors").insert(distributorsToInsert);
-      if (error) throw error;
+    if (error) throw error;
 
-      setSaved(true);
-      toast.success("Details saved successfully!");
+    setSaved(true);
+    toast.success("Distributors saved successfully!");
 
-      // ⛔ NO REDIRECT, NO NAVIGATION
-      // stays on same page
-
-    } catch (error: any) {
-      toast.error(error.message || "Failed to save distributors");
-    } finally {
-      setSaving(false);
-    }
-  };
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error.message || "Failed to save distributors");
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <DashboardLayout breadcrumbs={["Distributor", "Create"]}>
