@@ -50,6 +50,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [purchaseDropdownOpen, setPurchaseDropdownOpen] = useState(false);
   const [receiveDropdownOpen, setReceiveDropdownOpen] = useState(false);
+  const [billDropdownOpen, setBillDropdownOpen] = useState(false);
 
   const handleQuickAction = (label: string, action?: string) => {
     if (label === "Get Inventory") {
@@ -65,6 +66,12 @@ const Dashboard = () => {
         navigate("/dashboard/receive-orders/create");
       } else if (action === "get") {
         navigate("/dashboard/receive-orders");
+      }
+    } else if (label === "Create Bill") {
+      if (action === "create") {
+        navigate("/dashboard/bills/create");
+      } else if (action === "get") {
+        navigate("/dashboard/bills");
       }
     }
   };
@@ -98,17 +105,26 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {/* Create Bill */}
-        <div
-          onClick={() => navigate("/dashboard/bills/create")}
-          className="bg-gradient-to-r from-emerald-100 to-emerald-50 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:shadow-card transition-all group"
-        >
-          <div className="w-12 h-12 rounded-full bg-card shadow-sm flex items-center justify-center text-2xl">
-            💵
-          </div>
-          <span className="font-medium text-foreground flex-1">Create Bill</span>
-          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-        </div>
+        {/* Create Bill with Dropdown */}
+        <DropdownMenu open={billDropdownOpen} onOpenChange={setBillDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <div className="bg-gradient-to-r from-emerald-100 to-emerald-50 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:shadow-card transition-all group">
+              <div className="w-12 h-12 rounded-full bg-card shadow-sm flex items-center justify-center text-2xl">
+                💵
+              </div>
+              <span className="font-medium text-foreground flex-1">Create Bill</span>
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-card">
+            <DropdownMenuItem onClick={() => handleQuickAction("Create Bill", "create")}>
+              Create
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleQuickAction("Create Bill", "get")}>
+              Get
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Get Inventory */}
         <div

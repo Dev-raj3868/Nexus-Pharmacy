@@ -26,6 +26,7 @@ import GetIssueOrders from "./pages/issue-orders/GetIssueOrders";
 import CreateBillTemplate from "./pages/bill-template/CreateBillTemplate";
 import GetBillTemplate from "./pages/bill-template/GetBillTemplate";
 import CreateBill from "./pages/bills/CreateBill";
+import GetBill from "./pages/bills/GetBill";
 import Statistics from "./pages/statistics/Statistics";
 import Profile from "./pages/profile/Profile";
 import NotFound from "./pages/NotFound";
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/dashboard/bill-template/create" element={<CreateBillTemplate />} />
             <Route path="/dashboard/bill-template" element={<GetBillTemplate />} />
             <Route path="/dashboard/bills/create" element={<CreateBill />} />
+            <Route path="/dashboard/bills" element={<GetBill />} />
             <Route path="/dashboard/statistics" element={<Statistics />} />
             <Route path="/dashboard/profile" element={<Profile />} />
             {/* New Inventory Purchase routes (separate from home page) */}
