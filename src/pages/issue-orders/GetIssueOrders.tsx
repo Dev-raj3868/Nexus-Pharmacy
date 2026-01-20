@@ -33,10 +33,9 @@ interface IssueOrder {
   id: string;
   employee_type: string;
   employee_name: string;
-  issue_date: string;
+  issue_date: number;
   remark: string | null;
-  created_at: string;
-  user_id: string;
+  createdAt: number;
 }
 
 interface IssueOrderItem {
@@ -65,53 +64,34 @@ const GetIssueOrders = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const handleSearch = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    setHasSearched(true);
+  setIsLoading(true);
+  setHasSearched(true);
 
-    let query = supabase
-      .from("issue_orders")
-      .select("*", { count: "exact" })
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+  try {
+    const res = await window.context.getIssueOrders({
+      issueId,
+      fromDate: fromDate?.getTime(),
+      toDate: toDate?.getTime(),
+      page: currentPage,
+      limit: itemsPerPage
+    });
 
-    if (issueId) {
-      query = query.ilike("id", `%${issueId}%`);
-    }
-
-    if (fromDate) {
-      query = query.gte("issue_date", format(fromDate, "yyyy-MM-dd"));
-    }
-
-    if (toDate) {
-      query = query.lte("issue_date", format(toDate, "yyyy-MM-dd"));
-    }
-
-    const from = (currentPage - 1) * itemsPerPage;
-    const to = from + itemsPerPage - 1;
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
-
-    if (!error && data) {
-      setOrders(data);
-      setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-    }
-
+    setOrders(res.data);
+    setTotalPages(Math.ceil(res.total / itemsPerPage));
+  } catch (err) {
+    console.error(err);
+  } finally {
     setIsLoading(false);
-  };
+  }
+};
 
   const handleViewDetails = async (order: IssueOrder) => {
     setSelectedOrder(order);
 
-    const { data, error } = await supabase
-      .from("issue_order_items")
-      .select("*")
-      .eq("issue_order_id", order.id);
+    const items = await window.context.getIssueOrderItems(order.id);
+setOrderItems(items);
 
-    if (!error && data) {
-      setOrderItems(data);
-    }
+   
 
     setIsDetailOpen(true);
   };
@@ -301,7 +281,7 @@ const GetIssueOrders = () => {
                         {format(new Date(order.issue_date), "dd-MM-yyyy")}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {format(new Date(order.created_at), "dd-MM-yyyy")}
+                        {format(new Date(order.createdAt), "dd-MM-yyyy")}
                       </TableCell>
                       <TableCell className="text-sm">{order.remark || "-"}</TableCell>
                       <TableCell>
@@ -368,7 +348,7 @@ const GetIssueOrders = () => {
                   <div>
                     <Label className="text-sm text-muted-foreground">Created At</Label>
                     <div className="bg-muted rounded-lg px-4 py-2 mt-1">
-                      {format(new Date(selectedOrder.created_at), "dd-MM-yyyy HH:mm")}
+                      {format(new Date(selectedOrder.createdAt), "dd-MM-yyyy HH:mm")}
                     </div>
                   </div>
                   <div>

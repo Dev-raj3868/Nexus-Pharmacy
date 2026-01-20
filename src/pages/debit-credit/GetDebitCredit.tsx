@@ -21,21 +21,32 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
-import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format, isValid } from "date-fns";
+
+const safeFormat = (
+  value?: number,
+  pattern: string = "dd-MM-yyyy"
+) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  return isValid(d) ? format(d, pattern) : "-";
+};
 
 interface DebitCreditNote {
   id: string;
   note_id: string;
   note_type: string;
-  issue_date: string;
+  issue_date: number;        // ✅ timestamp
   purchase_order_id: string | null;
   reason: string | null;
   received_id: string | null;
   total: number;
   vendor_name: string | null;
-  created_at: string;
+  createdAt: number;         // ✅ timestamp
+  updatedAt: number;
+  items?: DebitCreditItem[];
 }
 
 interface DebitCreditItem {
@@ -72,24 +83,19 @@ const GetDebitCredit = () => {
   const [selectedItems, setSelectedItems] = useState<DebitCreditItem[]>([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchNotes();
-    }
-  }, [user]);
+ useEffect(() => {
+  fetchNotes();
+}, []);
 
   const fetchNotes = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("debit_credit_notes")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+    const data = await window.context.getCreditDebitNotes();
 
-      if (error) throw error;
+setNotes(data);
+setFilteredNotes(data);
 
       setNotes(data || []);
       setFilteredNotes(data || []);
@@ -113,45 +119,29 @@ const GetDebitCredit = () => {
       );
     }
 
-    if (fromDate) {
-      filtered = filtered.filter(
-        (note) => new Date(note.issue_date) >= fromDate
-      );
-    }
+if (fromDate) {
+  filtered = filtered.filter(
+    (note) => note.issue_date && new Date(note.issue_date) >= fromDate
+  );
+}
 
-    if (toDate) {
-      filtered = filtered.filter(
-        (note) => new Date(note.issue_date) <= toDate
-      );
-    }
+   if (toDate) {
+  filtered = filtered.filter(
+    (note) => note.issue_date && new Date(note.issue_date) <= toDate
+  );
+}
+
 
     setFilteredNotes(filtered);
     setCurrentPage(1);
   };
 
-  const openDetailModal = async (note: DebitCreditNote) => {
-    setSelectedNote(note);
+ const openDetailModal = (note: DebitCreditNote & { items?: DebitCreditItem[] }) => {
+  setSelectedNote(note);
+  setSelectedItems(note.items || []);
+  setDetailModalOpen(true);
+};
 
-    try {
-      const { data, error } = await supabase
-        .from("debit_credit_items")
-        .select("*")
-        .eq("debit_credit_note_id", note.id);
-
-      if (error) throw error;
-
-      setSelectedItems(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch items",
-        variant: "destructive",
-      });
-      setSelectedItems([]);
-    }
-
-    setDetailModalOpen(true);
-  };
 
   // Pagination logic
   const totalPages = Math.ceil(filteredNotes.length / itemsPerPage);
@@ -283,7 +273,10 @@ const GetDebitCredit = () => {
                           <TableCell>{note.total}</TableCell>
                           <TableCell>{note.vendor_name || "-"}</TableCell>
                           <TableCell>
-                            {format(new Date(note.created_at), "HH:mm")}
+                           <TableCell>
+  {safeFormat(note.createdAt, "HH:mm")}
+</TableCell>
+
                           </TableCell>
                           <TableCell>User</TableCell>
                           <TableCell>

@@ -179,46 +179,27 @@ const CreateDebitCredit = () => {
 
     try {
       // Create debit credit notes from product details
-      for (const product of productDetails) {
-        const { data: noteData, error: noteError } = await supabase
-          .from("debit_credit_notes")
-          .insert({
-            user_id: user.id,
-            note_id: product.noteId,
-            note_type: product.noteType,
-            issue_date: product.issueDate || new Date().toISOString().split("T")[0],
-            purchase_order_id: product.purchaseOrderId,
-            reason: product.reason,
-            received_id: product.receivedId,
-            total: parseFloat(product.total) || 0,
-            vendor_name: product.vendorName,
-          })
-          .select()
-          .single();
-
-        if (noteError) throw noteError;
-
-        // Insert item details for this note
-        if (itemDetails.length > 0) {
-          const itemsToInsert = itemDetails.map((item) => ({
-            user_id: user.id,
-            debit_credit_note_id: noteData.id,
-            item_name: item.name,
-            quantity: parseInt(item.quantity) || 0,
-            unit: item.unit,
-            price: parseFloat(item.price) || 0,
-            batch_no: item.batchNo,
-            gst: item.gst,
-            reason: item.reason,
-          }));
-
-          const { error: itemsError } = await supabase
-            .from("debit_credit_items")
-            .insert(itemsToInsert);
-
-          if (itemsError) throw itemsError;
-        }
-      }
+     for (const product of productDetails) {
+  await window.context.createCreditDebitNote({
+    note_id: product.noteId,
+    note_type: product.noteType,
+    issue_date: product.issueDate,
+    purchase_order_id: product.purchaseOrderId,
+    reason: product.reason,
+    received_id: product.receivedId,
+    total: Number(product.total) || 0,
+    vendor_name: product.vendorName,
+    items: itemDetails.map((item) => ({
+      item_name: item.name,
+      quantity: Number(item.quantity) || 0,
+      unit: item.unit,
+      price: Number(item.price) || 0,
+      batch_no: item.batchNo,
+      gst: item.gst,
+      reason: item.reason,
+    })),
+  });
+}
 
       toast({
         title: "Success",

@@ -135,61 +135,38 @@ const CreateIssueOrder = () => {
     setItemDetails(itemDetails.filter((i) => i.id !== id));
   };
 
-  const handleSave = async () => {
-    if (issueOrderDetails.length === 0) {
-      toast.error("Please add at least one issue order detail");
-      return;
+ const handleSave = async () => {
+  if (issueOrderDetails.length === 0) {
+    toast.error("Please add at least one issue order detail");
+    return;
+  }
+
+  if (itemDetails.length === 0) {
+    toast.error("Please add at least one item");
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    for (const detail of issueOrderDetails) {
+      await window.context.createIssueOrder({
+        employee_type: detail.employee_type,
+        employee_name: detail.employee_name,
+        issue_date: detail.issue_date.getTime(), // 🔴 IMPORTANT
+        remark: detail.remark,
+        items: itemDetails
+      });
     }
 
-    if (itemDetails.length === 0) {
-      toast.error("Please add at least one item");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Create issue order for each detail
-      for (const detail of issueOrderDetails) {
-        const { data: issueOrder, error: orderError } = await supabase
-          .from("issue_orders")
-          .insert({
-            user_id: user?.id,
-            employee_type: detail.employee_type,
-            employee_name: detail.employee_name,
-            issue_date: format(detail.issue_date, "yyyy-MM-dd"),
-            remark: detail.remark,
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // Add all items to this issue order
-        const orderItems = itemDetails.map((item) => ({
-          issue_order_id: issueOrder.id,
-          user_id: user?.id,
-          item_id: item.item_id,
-          item_name: item.item_name,
-          quantity: item.quantity,
-          remark: item.remark,
-        }));
-
-        const { error: itemsError } = await supabase
-          .from("issue_order_items")
-          .insert(orderItems);
-
-        if (itemsError) throw itemsError;
-      }
-
-      toast.success("Issue order created successfully!");
-      navigate("/dashboard/issue-orders");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create issue order");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    toast.success("Issue order created successfully!");
+    navigate("/dashboard/issue-orders");
+  } catch (error: any) {
+    toast.error(error.message || "Failed to create issue order");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const filteredInventory = inventory.filter(
     (item) =>
@@ -348,7 +325,6 @@ const CreateIssueOrder = () => {
                 value={itemId}
                 onChange={(e) => setItemId(e.target.value)}
                 className="bg-muted"
-                disabled
               />
             </div>
 

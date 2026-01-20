@@ -56,7 +56,8 @@ const App = () => (
             <Route path="/dashboard/customers/list" element={<CustomerList />} />
             <Route path="/dashboard/gst-reports" element={<GstReportSearch />} />
             <Route path="/dashboard/gst-reports/list" element={<GstReportList />} />
-            <Route path="/dashboard/inventory" element={<GetInventoryList />} />
+            <Route path="/dashboard/inventory" element={<GetInventorySearch />} />
+            <Route path="/dashboard/inventory/get" element={<GetInventoryList />} />
             <Route path="/dashboard/inventory/create" element={<InventoryManagement />} />
             <Route path="/dashboard/receive-orders/create" element={<CreateReceiveOrder />} />
             <Route path="/dashboard/receive-orders" element={<GetReceiveOrders />} />

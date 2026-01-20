@@ -32,39 +32,23 @@ const GetInventoryReceive = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSearch = async () => {
-    if (!user) return;
+    setIsLoading(true)
 
-    setIsLoading(true);
     try {
-      let query = supabase
-        .from("receive_orders")
-        .select("*, receive_order_items(*)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      const data = await window.context.getReceiveMaterials({
+        vendorName,
+        purchaseId: receiveOrderId,
+        fromDate: fromDate?.getTime(),
+        toDate: toDate?.getTime(),
+      })
 
-      if (vendorName) {
-        query = query.ilike("vendor_name", `%${vendorName}%`);
-      }
-      if (receiveOrderId) {
-        query = query.ilike("id", `%${receiveOrderId}%`);
-      }
-      if (fromDate) {
-        query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
-      }
-      if (toDate) {
-        query = query.lte("created_at", format(toDate, "yyyy-MM-dd") + "T23:59:59");
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setReceiveOrders(data || []);
+      setReceiveOrders(data || [])
     } catch (error) {
-      console.error("Error fetching receive orders:", error);
+      console.error("Error fetching receive materials:", error)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
     if (user) {
@@ -185,36 +169,38 @@ const GetInventoryReceive = () => {
                     <TableCell className="font-mono text-sm">
                       {order.id.slice(0, 8)}
                     </TableCell>
-                    <TableCell>{order.vendor_name}</TableCell>
-                    <TableCell>{order.purchase_id}</TableCell>
+                    <TableCell>{order.vendorName}</TableCell>
+                    <TableCell>{order.purchaseId}</TableCell>
                     <TableCell>
                       <span
                         className={cn(
                           "px-2 py-1 rounded-full text-xs font-medium",
-                          order.payment_status === "Pending" && "bg-yellow-100 text-yellow-800",
-                          order.payment_status === "Paid" && "bg-green-100 text-green-800",
-                          order.payment_status === "Partial" && "bg-orange-100 text-orange-800"
+                          order.paymentStatus === "Pending" && "bg-yellow-100 text-yellow-800",
+                          order.paymentStatus === "Paid" && "bg-green-100 text-green-800",
+                          order.paymentStatus === "Partial" && "bg-orange-100 text-orange-800"
                         )}
                       >
-                        {order.payment_status}
+                        {order.paymentStatus}
                       </span>
                     </TableCell>
+
                     <TableCell>
                       <span
                         className={cn(
                           "px-2 py-1 rounded-full text-xs font-medium",
-                          order.delivery_status === "Pending" && "bg-yellow-100 text-yellow-800",
-                          order.delivery_status === "Delivered" && "bg-green-100 text-green-800",
-                          order.delivery_status === "Completed" && "bg-green-100 text-green-800",
-                          order.delivery_status === "In Transit" && "bg-blue-100 text-blue-800"
+                          order.deliveryStatus === "Pending" && "bg-yellow-100 text-yellow-800",
+                          order.deliveryStatus === "Completed" && "bg-green-100 text-green-800",
+                          order.deliveryStatus === "In Transit" && "bg-blue-100 text-blue-800"
                         )}
                       >
-                        {order.delivery_status}
+                        {order.deliveryStatus}
                       </span>
                     </TableCell>
-                    <TableCell>{order.receive_order_items?.length || 0}</TableCell>
+
+                    <TableCell>{order.data.itemDetails.length}</TableCell>
+
                     <TableCell>
-                      {format(new Date(order.created_at), "dd-MM-yyyy")}
+                      {format(new Date(order.createdAt), "dd-MM-yyyy")}
                     </TableCell>
                   </TableRow>
                 ))}

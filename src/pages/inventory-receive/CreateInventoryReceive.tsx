@@ -118,61 +118,33 @@ const CreateInventoryReceive = () => {
   };
 
   const handleSave = async () => {
-    if (orderDetails.length === 0) {
-      toast.error("Please add at least one order detail");
-      return;
-    }
+  if (orderDetails.length === 0) {
+    toast.error("Please add at least one order detail")
+    return
+  }
 
-    if (itemDetails.length === 0) {
-      toast.error("Please add at least one item");
-      return;
-    }
+  if (itemDetails.length === 0) {
+    toast.error("Please add at least one item")
+    return
+  }
 
-    setIsLoading(true);
+  setIsLoading(true)
 
-    try {
-      for (const order of orderDetails) {
-        const { data: receiveOrder, error: orderError } = await supabase
-          .from("receive_orders")
-          .insert({
-            user_id: user?.id,
-            purchase_id: order.purchase_order_id,
-            vendor_name: order.vendor_name,
-            payment_status: order.payment_status,
-            delivery_status: order.delivery_status,
-          })
-          .select()
-          .single();
+  try {
+    await window.context.createReceiveMaterial({
+      orderDetails,   // names unchanged
+      itemDetails
+    })
 
-        if (orderError) throw orderError;
+    toast.success("Inventory receive order created successfully!")
+    navigate("/dashboard/inventory-receive")
+  } catch (error: any) {
+    toast.error(error.message || "Failed to create inventory receive order")
+  } finally {
+    setIsLoading(false)
+  }
+}
 
-        const orderItems = itemDetails.map((item) => ({
-          receive_order_id: receiveOrder.id,
-          user_id: user?.id,
-          item_id: item.item_id,
-          item_name: item.item_name,
-          received_quantity: item.received_quantity,
-          category: item.category,
-          unit: item.unit || "Unit",
-          batch_no: `BATCH-${Date.now()}`,
-          remark: item.remark,
-        }));
-
-        const { error: itemsError } = await supabase
-          .from("receive_order_items")
-          .insert(orderItems);
-
-        if (itemsError) throw itemsError;
-      }
-
-      toast.success("Inventory receive order created successfully!");
-      navigate("/dashboard/inventory-receive");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create inventory receive order");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <DashboardLayout breadcrumbs={["Inventory Mgmt", "Inventory Receive", "Create"]}>

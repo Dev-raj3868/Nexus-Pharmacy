@@ -30,7 +30,8 @@ const GetInventorySearch = () => {
         name: itemName || undefined,
         category: category || undefined,
       });
-      navigate("/dashboard/get-inventory/list", {
+      console.log("Search Results:", data);
+      navigate("/dashboard/inventory/get", {
         state: { items: data },
       });
     } catch (error) {
@@ -44,7 +45,8 @@ const GetInventorySearch = () => {
     setLoading(true);
     try {
       const data = await window.context.getInventory();
-      navigate("/dashboard/get-inventory/list", {
+      console.log("All Inventory Items:", data);
+      navigate("/dashboard/inventory/get", {
         state: { items: data },
       });
     } catch (error) {
