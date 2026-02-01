@@ -67,7 +67,7 @@ const App = () => (
             <Route path="/dashboard/issue-orders/create" element={<CreateIssueOrder />} />
             <Route path="/dashboard/issue-orders" element={<GetIssueOrders />} />
             <Route path="/dashboard/bill-template/create" element={<CreateBillTemplate />} />
-            <Route path="/dashboard/bill-template" element={<GetBillTemplate />} />
+
             <Route path="/dashboard/bills/create" element={<CreateBill />} />
             <Route path="/dashboard/bills" element={<GetBill />} />
             <Route path="/dashboard/statistics" element={<Statistics />} />
