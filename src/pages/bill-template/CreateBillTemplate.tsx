@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -23,7 +23,16 @@ interface FieldConfig {
 interface BillTemplateConfig {
   templateName: string;
   pharmacyEnabled: boolean;
-  logo: FieldConfig & { file?: File };
+ logo: FieldConfig & {
+  file?: File;        // UI only
+  dataUrl?: string;  // persisted
+};
+
+signature: FieldConfig & {
+  file?: File;
+  dataUrl?: string;
+};
+
   address: FieldConfig;
   fssai: FieldConfig;
   gstin: FieldConfig;
@@ -61,7 +70,7 @@ interface BillTemplateConfig {
   totalBill: FieldConfig;
   outstandingAmount: FieldConfig;
   declarationEnabled: boolean;
-  signature: FieldConfig & { file?: File };
+ 
   termsAndConditions: FieldConfig;
   remark: FieldConfig;
 }
@@ -123,31 +132,79 @@ const CreateBillTemplate = () => {
     remark: { enabled: true, value: "" },
   });
 
+useEffect(() => {
+  const loadTemplate = async () => {
+    try {
+      const templates = await window.context.getAllBillTemplates();
+      console.log("Loaded templates:", templates);
+
+      if (templates && templates.length > 0) {
+        const latest = templates.sort(
+          (a: any, b: any) => b.updatedAt - a.updatedAt
+        )[0];
+
+        // Make sure we handle undefined
+        const configWithImages: BillTemplateConfig = {
+          ...latest.config,
+          logo: {
+            enabled: latest.config.logo?.enabled ?? true,
+            dataUrl: latest.config.logo?.dataUrl ?? "",
+          },
+          signature: {
+            enabled: latest.config.signature?.enabled ?? true,
+            dataUrl: latest.config.signature?.dataUrl ?? "",
+          },
+        };
+
+        setConfig(configWithImages);
+      }
+    } catch (err) {
+      console.error("Failed to load bill templates:", err);
+    }
+  };
+
+  loadTemplate();
+}, []);
+
+
+
   const updateField = (fieldPath: string, value: boolean | string | File) => {
     setConfig((prev) => {
       const keys = fieldPath.split(".");
       const newConfig = { ...prev };
       let current: any = newConfig;
-      
+
       for (let i = 0; i < keys.length - 1; i++) {
         current[keys[i]] = { ...current[keys[i]] };
         current = current[keys[i]];
       }
-      
+
       const lastKey = keys[keys.length - 1];
       if (typeof value === "boolean" && lastKey === "enabled") {
         current.enabled = value;
       } else if (lastKey === "value") {
         current.value = value as string;
-      } else if (lastKey === "file") {
-        current.file = value as File;
-      } else {
+     } else if (lastKey === "file") {
+  current.file = value as File;
+} else if (lastKey === "dataUrl") {
+  current.dataUrl = value as string;
+}
+ else {
         current[lastKey] = value;
       }
-      
+
       return newConfig;
     });
   };
+const sanitizeConfigForSave = (config: BillTemplateConfig) => {
+  const clone = structuredClone(config)
+
+  // ❌ remove File objects
+  delete clone.logo.file
+  delete clone.signature.file
+
+  return clone
+}
 
 const handleSave = async () => {
   if (!config.templateName.trim()) {
@@ -155,32 +212,47 @@ const handleSave = async () => {
       title: "Error",
       description: "Please enter a template name",
       variant: "destructive",
-    });
-    return;
+    })
+    return
   }
 
-  setSaving(true);
+  setSaving(true)
   try {
-    await window.context.createInvoice(config);
+    const templates = await window.context.getAllBillTemplates()
+
+    const existing = templates?.find(
+      (t: any) => t.templateName === config.templateName
+    )
+
+    const safeConfig = sanitizeConfigForSave(config)
+
+    await window.context.saveBillTemplate({
+      templateName: config.templateName,
+      config: safeConfig,   // ✅ clean object
+      ...(existing && { id: existing.id }),
+    })
 
     toast({
       title: "Success",
-      description: "Bill template saved successfully",
-    });
-  } catch (error: any) {
+      description: existing
+        ? "Bill template updated successfully"
+        : "Bill template created successfully",
+    })
+  } catch (err: any) {
     toast({
       title: "Error",
-      description: error.message || "Failed to save template",
+      description: err.message,
       variant: "destructive",
-    });
+    })
   } finally {
-    setSaving(false);
+    setSaving(false)
   }
-};
+}
 
-  const ToggleField = ({ 
-    label, 
-    enabled, 
+
+  const ToggleField = ({
+    label,
+    enabled,
     onToggle,
     showInput = false,
     inputValue = "",
@@ -247,13 +319,13 @@ const handleSave = async () => {
     </div>
   );
 
-  const SectionHeader = ({ 
-    title, 
-    enabled, 
-    onToggle 
-  }: { 
-    title: string; 
-    enabled: boolean; 
+  const SectionHeader = ({
+    title,
+    enabled,
+    onToggle
+  }: {
+    title: string;
+    enabled: boolean;
     onToggle: (val: boolean) => void;
   }) => (
     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-t-lg border-b border-border">
@@ -303,8 +375,15 @@ const handleSave = async () => {
                 enabled={config.logo.enabled}
                 onToggle={(val) => updateField("logo.enabled", val)}
                 showUpload
-                fileName={config.logo.file?.name}
-                onUpload={(file) => updateField("logo.file", file)}
+             fileName={config.logo.dataUrl ? "Uploaded Image" : ""}
+onUpload={(file) => {
+  const reader = new FileReader()
+  reader.onload = () => {
+    updateField("logo.dataUrl", reader.result as string) // only store dataUrl
+  }
+  reader.readAsDataURL(file)
+}}
+
               />
               <ToggleField
                 label="Address"
@@ -314,16 +393,24 @@ const handleSave = async () => {
                 inputValue={config.address.value}
                 onInputChange={(val) => updateField("address.value", val)}
               />
-              <ToggleField
-                label="FSSAI"
-                enabled={config.fssai.enabled}
-                onToggle={(val) => updateField("fssai.enabled", val)}
-              />
-              <ToggleField
-                label="GSTIN"
-                enabled={config.gstin.enabled}
-                onToggle={(val) => updateField("gstin.enabled", val)}
-              />
+           <ToggleField
+  label="FSSAI"
+  enabled={config.fssai.enabled}
+  onToggle={(val) => updateField("fssai.enabled", val)}
+  showInput
+  inputValue={config.fssai.value}
+  onInputChange={(val) => updateField("fssai.value", val)}
+/>
+
+<ToggleField
+  label="GSTIN"
+  enabled={config.gstin.enabled}
+  onToggle={(val) => updateField("gstin.enabled", val)}
+  showInput
+  inputValue={config.gstin.value}
+  onInputChange={(val) => updateField("gstin.value", val)}
+/>
+
             </div>
           )}
         </div>
@@ -455,8 +542,16 @@ const handleSave = async () => {
                 enabled={config.signature.enabled}
                 onToggle={(val) => updateField("signature.enabled", val)}
                 showUpload
-                fileName={config.signature.file?.name}
-                onUpload={(file) => updateField("signature.file", file)}
+             fileName={config.signature.dataUrl ? "Uploaded Image" : ""}
+onUpload={(file) => {
+  const reader = new FileReader()
+  reader.onload = () => {
+    updateField("signature.dataUrl", reader.result as string)
+  }
+  reader.readAsDataURL(file)
+}}
+
+
               />
               <ToggleField
                 label="Terms and Conditions"
@@ -496,22 +591,31 @@ const handleSave = async () => {
             {/* Header */}
             <div className="flex items-start justify-between border-b pb-4 mb-4">
               <div className="flex items-center gap-4">
-                {config.pharmacyEnabled && config.logo.enabled && (
-                  <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
-                    <Logo />
-                  </div>
-                )}
+               {config.pharmacyEnabled && config.logo.enabled && config.logo.dataUrl ? (
+  <img
+    src={config.logo.dataUrl}
+    className="w-16 h-16 object-contain"
+  />
+) : (
+  <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+    Logo
+  </div>
+)}
+
+
                 <div>
                   <h1 className="text-xl font-bold">{profile?.pharmacy_name || "Pharmacy Name"}</h1>
                   {config.pharmacyEnabled && config.address.enabled && (
                     <p className="text-sm text-gray-600">{profile?.pharmacy_address || "Address"}</p>
                   )}
-                  {config.pharmacyEnabled && config.gstin.enabled && (
-                    <p className="text-sm">GSTIN: {profile?.pharmacy_gst_number || "XXXXXXXX"}</p>
-                  )}
-                  {config.pharmacyEnabled && config.fssai.enabled && (
-                    <p className="text-sm">FSSAI: {profile?.fssai_id || "XXXXXXXX"}</p>
-                  )}
+                {config.pharmacyEnabled && config.gstin.enabled && config.gstin.value && (
+  <p className="text-sm">GSTIN: {config.gstin.value}</p>
+)}
+
+{config.pharmacyEnabled && config.fssai.enabled && config.fssai.value && (
+  <p className="text-sm">FSSAI: {config.fssai.value}</p>
+)}
+
                 </div>
               </div>
               <div className="text-right">
@@ -633,7 +737,15 @@ const handleSave = async () => {
                 {config.signature.enabled && (
                   <div className="flex justify-end">
                     <div className="text-center">
-                      <div className="w-32 border-b border-gray-400 mb-1"></div>
+                    {config.signature.dataUrl ? (
+  <img
+    src={config.signature.dataUrl}
+    className="w-32 h-16 object-contain mb-1"
+  />
+) : (
+  <div className="w-32 border-b border-gray-400 mb-1"></div>
+)}
+
                       <p className="text-xs">Authorized Signature</p>
                     </div>
                   </div>

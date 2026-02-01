@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { format } from "date-fns";
+
 import { CalendarIcon, Search, FileText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { format, isValid } from "date-fns";
+
 import {
   Pagination,
   PaginationContent,
@@ -29,6 +31,8 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
+import InvoicePrintTemplate from "@/components/InvoicePrintTemplate";
+
 import { cn } from "@/lib/utils";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,16 +41,28 @@ import { useToast } from "@/hooks/use-toast";
 import { useReactToPrint } from "react-to-print";
 import Logo from "@/components/Logo";
 
+interface BillItem {
+  name: string;
+  qty: number;
+  rate: number;
+  amount: number;
+}
+
 interface Bill {
   id: string;
-  bill_number: string;
-  patient_name: string;
-  patient_phone: string | null;
-  total_amount: number;
-  payment_status: string;
-  bill_date: string;
-  created_at: string;
+  billNumber: string;
+  patientName: string;
+  patientPhone: string | null;
+  totalAmount: number;
+  paymentStatus: string;
+  billDate: string;
+  createdAt: number;
+
+  // 🔥 THESE WERE MISSING
+  items: BillItem[];
+  signature?: string;
 }
+
 
 const GetBill = () => {
   const { user, profile } = useAuth();
@@ -71,65 +87,57 @@ const GetBill = () => {
   });
 
   const handleSearch = async () => {
-    if (!user) return;
+   setLoading(true);
+setSearched(true);
 
-    setLoading(true);
-    setSearched(true);
+try {
+  const data = await window.context.searchBills({
+    billNumber: searchId || undefined,
+    patientName: patientName || undefined,
+    patientPhone: phoneNumber || undefined,
+    billDate: searchDate
+      ? format(searchDate, "yyyy-MM-dd")
+      : undefined,
+  });
+  console.log("Fetched bills:", data);
+  setBills(data || []);
+} catch (error) {
+  toast({
+    title: "Error",
+    description: "Failed to fetch bills",
+    variant: "destructive",
+  });
+} finally {
+  setLoading(false);
+}
 
-    try {
-      let query = supabase
-        .from("bills")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (searchId.trim()) {
-        query = query.ilike("bill_number", `%${searchId}%`);
-      }
-      if (patientName.trim()) {
-        query = query.ilike("patient_name", `%${patientName}%`);
-      }
-      if (phoneNumber.trim()) {
-        query = query.ilike("patient_phone", `%${phoneNumber}%`);
-      }
-      if (searchDate) {
-        query = query.eq("bill_date", format(searchDate, "yyyy-MM-dd"));
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch bills",
-          variant: "destructive",
-        });
-      } else {
-        setBills(data || []);
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
   };
 
-  const filteredBills = bills.filter((bill) =>
-    bill.patient_name.toLowerCase().includes(searchPatientFilter.toLowerCase())
-  );
+const filteredBills = bills.filter((bill) =>
+  bill.patientName.toLowerCase().includes(searchPatientFilter.toLowerCase())
+);
+
+
 
   const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedBills = filteredBills.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleViewDetails = (bill: Bill) => {
-    setSelectedBill(bill);
+  const handleViewDetails = async (bill: Bill) => {
+  try {
+    const fullBill = await window.context.getBillById(bill.id);
+    console.log("Full bill details:", fullBill);
+    setSelectedBill(fullBill);
     setDetailOpen(true);
-  };
+  } catch (err) {
+    toast({
+      title: "Error",
+      description: "Failed to load bill details",
+      variant: "destructive",
+    });
+  }
+};
+
 
   const handleReset = () => {
     setSearchId("");
@@ -250,24 +258,34 @@ const GetBill = () => {
                     </TableHeader>
                     <TableBody>
                       {paginatedBills.map((bill) => (
-                        <TableRow key={bill.id}>
-                          <TableCell className="font-medium">{bill.bill_number}</TableCell>
-                          <TableCell>{bill.patient_name}</TableCell>
-                          <TableCell>{bill.patient_phone || "-"}</TableCell>
-                          <TableCell>{format(new Date(bill.bill_date), "dd/MM/yyyy")}</TableCell>
-                          <TableCell>₹{bill.total_amount.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <span
-                              className={cn(
-                                "px-2 py-1 rounded-full text-xs font-medium",
-                                bill.payment_status === "paid"
-                                  ? "bg-green-100 text-green-800"
-                                  : bill.payment_status === "pending"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
-                              )}
-                            >
-                              {bill.payment_status}
+                     <TableRow key={bill.id}>
+  <TableCell className="font-medium">{bill.billNumber}</TableCell>
+  <TableCell>{bill.patientName}</TableCell>
+  <TableCell>{bill.patientPhone || "-"}</TableCell>
+
+  <TableCell>
+    {(() => {
+      const d = new Date(bill.billDate);
+      return isValid(d) ? format(d, "dd/MM/yyyy") : "-";
+    })()}
+  </TableCell>
+
+  <TableCell>₹{Number(bill.totalAmount || 0).toFixed(2)}</TableCell>
+
+  <TableCell>
+    <span
+      className={cn(
+        "px-2 py-1 rounded-full text-xs font-medium",
+        bill.paymentStatus === "paid"
+          ? "bg-green-100 text-green-800"
+          : bill.paymentStatus === "pending"
+          ? "bg-yellow-100 text-yellow-800"
+          : "bg-red-100 text-red-800"
+      )}
+    >
+      {bill.paymentStatus}
+  
+
                             </span>
                           </TableCell>
                           <TableCell>
@@ -327,47 +345,24 @@ const GetBill = () => {
 
         {/* Bill Details Dialog */}
         <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div ref={printRef} className="space-y-6">
-              {selectedBill && (
-                <>
-                  <div className="text-center">
-                    <Logo />
-                    <h2 className="text-xl font-bold mt-4">Bill Details</h2>
-                  </div>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0">
+  <div ref={printRef}>
+    {selectedBill && (
+      <InvoicePrintTemplate bill={selectedBill} />
+    )}
+  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="font-semibold mb-2">Bill Information</h3>
-                      <p><strong>Bill Number:</strong> {selectedBill.bill_number}</p>
-                      <p><strong>Bill Date:</strong> {format(new Date(selectedBill.bill_date), "dd/MM/yyyy")}</p>
-                      <p><strong>Payment Status:</strong> {selectedBill.payment_status}</p>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-2">Patient Information</h3>
-                      <p><strong>Name:</strong> {selectedBill.patient_name}</p>
-                      <p><strong>Phone:</strong> {selectedBill.patient_phone || "N/A"}</p>
-                    </div>
-                  </div>
+  <div className="flex justify-end gap-2 p-4 border-t">
+    <Button variant="outline" onClick={() => setDetailOpen(false)}>
+      Close
+    </Button>
+    <Button onClick={handlePrint}>
+      <Printer className="w-4 h-4 mr-2" />
+      Print
+    </Button>
+  </div>
+</DialogContent>
 
-                  {/* Bill items would go here - simplified for now */}
-                  <div className="text-center">
-                    <p className="text-lg font-semibold">Total Amount: ₹{selectedBill.total_amount.toFixed(2)}</p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => setDetailOpen(false)}>
-                Close
-              </Button>
-              <Button onClick={() => handlePrint()}>
-                <Printer className="w-4 h-4 mr-2" />
-                Print
-              </Button>
-            </div>
-          </DialogContent>
         </Dialog>
       </div>
     </DashboardLayout>
