@@ -12,6 +12,7 @@ import CreateDistributor from "./pages/distributors/CreateDistributor";
 import GetDistributors from "./pages/distributors/GetDistributors";
 import CustomerSearch from "./pages/customers/CustomerSearch";
 import CustomerList from "./pages/customers/CustomerList";
+import CreateCustomer from "./pages/customers/CreateCustomer";
 import GstReportSearch from "./pages/gst-reports/GstReportSearch";
 import GstReportList from "./pages/gst-reports/GstReportList";
 import InventoryManagement from "./pages/inventory/InventoryManagement";
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/dashboard/distributors" element={<GetDistributors />} />
             <Route path="/dashboard/customers" element={<CustomerSearch />} />
             <Route path="/dashboard/customers/list" element={<CustomerList />} />
+            <Route path="/dashboard/customers/create" element={<CreateCustomer />} />
             <Route path="/dashboard/gst-reports" element={<GstReportSearch />} />
             <Route path="/dashboard/gst-reports/list" element={<GstReportList />} />
             <Route path="/dashboard/inventory" element={<GetInventoryList />} />
