@@ -86,6 +86,9 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
   const [billTemplateOpen, setBillTemplateOpen] = useState(
     location.pathname.includes("/dashboard/bill-template")
   );
+  const [customersOpen, setCustomersOpen] = useState(
+    location.pathname.includes("/dashboard/customers")
+  );
 
   useEffect(() => {
     if (!loading && !user) {
@@ -507,18 +510,52 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
               </CollapsibleContent>
             </Collapsible>
 
-            {/* Customers Link */}
-            <Link
-              to="/dashboard/customers"
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                location.pathname.includes("/dashboard/customers")
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <Users className="w-5 h-5 flex-shrink-0" />
-              {sidebarOpen && <span>Customers</span>}
-            </Link>
+            {/* Customers Dropdown */}
+            <Collapsible open={customersOpen} onOpenChange={setCustomersOpen}>
+              <CollapsibleTrigger
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  location.pathname.includes("/dashboard/customers")
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Users className="w-5 h-5 flex-shrink-0" />
+                {sidebarOpen && (
+                  <>
+                    <span className="flex-1 text-left">Customers</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        customersOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </>
+                )}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-8 space-y-1 mt-1">
+                <Link
+                  to="/dashboard/customers/create"
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    location.pathname === "/dashboard/customers/create"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  {sidebarOpen && <span>Create</span>}
+                </Link>
+                <Link
+                  to="/dashboard/customers"
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    location.pathname === "/dashboard/customers" || location.pathname === "/dashboard/customers/list"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                  {sidebarOpen && <span>Get</span>}
+                </Link>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Bill Template Dropdown */}
             <Collapsible open={billTemplateOpen} onOpenChange={setBillTemplateOpen}>
