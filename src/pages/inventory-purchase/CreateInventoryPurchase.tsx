@@ -138,61 +138,50 @@ const CreateInventoryPurchase = () => {
     setItemDetails(itemDetails.filter((i) => i.id !== id));
   };
 
-  const handleSave = async () => {
-    if (purchaseOrderDetails.length === 0) {
-      toast.error("Please add at least one purchase order detail");
-      return;
-    }
+ const handleSave = async () => {
+  if (purchaseOrderDetails.length === 0) {
+    toast.error("Please add at least one purchase order detail");
+    return;
+  }
 
-    if (itemDetails.length === 0) {
-      toast.error("Please add at least one item");
-      return;
-    }
+  if (itemDetails.length === 0) {
+    toast.error("Please add at least one item");
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    try {
-      for (const purchaseOrder of purchaseOrderDetails) {
-        const { data: order, error: orderError } = await supabase
-          .from("purchase_orders")
-          .insert({
-            user_id: user?.id,
-            supplier_id: crypto.randomUUID(),
-            supplier_name: purchaseOrder.supplier_name,
-            requisition_date: format(new Date(), "yyyy-MM-dd"),
-            expected_date: format(purchaseOrder.expected_date, "yyyy-MM-dd"),
-            status: purchaseOrder.payment_status,
-          })
-          .select()
-          .single();
+  try {
+    for (const po of purchaseOrderDetails) {
+      await window.context.createPurchaseOrder({
+        supplier_name: po.supplier_name,
+        supplier_id: crypto.randomUUID(),
 
-        if (orderError) throw orderError;
+        requisition_date: format(new Date(), "yyyy-MM-dd"),
+        expected_date: format(po.expected_date, "yyyy-MM-dd"),
 
-        const orderItems = itemDetails.map((item) => ({
-          purchase_order_id: order.id,
-          user_id: user?.id,
+        payment_status: po.payment_status,
+
+        items: itemDetails.map((item) => ({
+          item_id: item.item_id,
           item_name: item.item_name,
           quantity: item.quantity,
           category: item.category,
           unit: item.unit || "Unit",
           remark: item.remark,
-        }));
-
-        const { error: itemsError } = await supabase
-          .from("purchase_order_items")
-          .insert(orderItems);
-
-        if (itemsError) throw itemsError;
-      }
-
-      toast.success("Inventory purchase order created successfully!");
-      navigate("/dashboard/inventory-purchase");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create inventory purchase order");
-    } finally {
-      setIsLoading(false);
+        })),
+      });
     }
-  };
+
+    toast.success("Inventory purchase order created successfully!");
+    navigate("/dashboard/inventory-purchase");
+  } catch (error: any) {
+    toast.error(error.message || "Failed to create purchase order");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <DashboardLayout breadcrumbs={["Inventory Mgmt", "Inventory Purchase", "Create"]}>

@@ -146,7 +146,12 @@ const config = bill.templateSnapshot?.config || {};
 
       {/* FOOTER */}
       <div className="flex justify-between mt-10">
-        <p className="text-xs">* Medicines once sold cannot be returned</p>
+       {config.termsAndConditions?.enabled && (
+  <p className="text-xs">
+    {config.termsAndConditions.value}
+  </p>
+)}
+
       <div className="text-center">
   {bill.templateSnapshot.config.signature.dataUrl && (
     <img

@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRef } from "react";
+import InvoicePrintTemplate from "@/components/InvoicePrintTemplate";
+import { useReactToPrint } from "react-to-print";
+import { Printer } from "lucide-react";
+
 import { useEffect } from "react"
 
 import {
@@ -77,6 +82,12 @@ const CreateBill = () => {
   const [membershipId, setMembershipId] = useState("");
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdBillNumber, setCreatedBillNumber] = useState("");
+const [selectedBill, setSelectedBill] = useState<any>(null);
+const [detailOpen, setDetailOpen] = useState(false);
+const printRef = useRef<HTMLDivElement>(null);
+const handlePrint = useReactToPrint({
+  contentRef: printRef,
+});
 
   // Step tracking
   const [currentStep, setCurrentStep] = useState(1);
@@ -91,25 +102,25 @@ const CreateBill = () => {
   });
   const [patientList, setPatientList] = useState<PatientInfo[]>([]);
   const [template, setTemplate] = useState<any>(null)
-useEffect(() => {
-  const loadTemplate = async () => {
-    try {
-      const data = await window.context.getAllBillTemplates()
+  useEffect(() => {
+    const loadTemplate = async () => {
+      try {
+        const data = await window.context.getAllBillTemplates()
 
-      // ✅ pick latest template
-      const latestTemplate = Array.isArray(data) && data.length > 0
-        ? data[0]
-        : null
+        // ✅ pick latest template
+        const latestTemplate = Array.isArray(data) && data.length > 0
+          ? data[0]
+          : null
 
-      setTemplate(latestTemplate)
-      console.log("Loaded template:", latestTemplate)
-    } catch (err) {
-      console.error("Error loading template:", err)
+        setTemplate(latestTemplate)
+        // console.log("Loaded template:", latestTemplate)
+      } catch (err) {
+        console.error("Error loading template:", err)
+      }
     }
-  }
 
-  loadTemplate()
-}, [])
+    loadTemplate()
+  }, [])
 
 
 
@@ -164,6 +175,8 @@ useEffect(() => {
     // Move to next step
     if (currentStep === 1) setCurrentStep(2);
   };
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const addItem = () => {
     if (!itemInfo.itemName) {
@@ -273,29 +286,29 @@ useEffect(() => {
       const billNumber = `BILL-${Date.now()}`;
 
       // Create bill
-   if (!template) {
-  toast.error("Bill template not loaded");
-  return;
-}
+      if (!template) {
+        toast.error("Bill template not loaded");
+        return;
+      }
 
-await window.context.createBill({
+    await window.context.createBill({
   billNumber,
   patientName: patientList[0].name,
   patientPhone: patientList[0].phone || null,
   billDate: itemList[0]?.billDate || new Date().toISOString(),
-
-  // ✅ REQUIRED
   totalAmount: totals.totalBill,
-
   paymentStatus: totals.outstanding <= 0 ? "paid" : "pending",
-
   items: itemList,
   templateSnapshot: template,
 });
 
+// 🔥 FETCH THE BILL YOU JUST CREATED
+const fullBill = await window.context.getBillByNumber(billNumber);
 
-      setCreatedBillNumber(billNumber);
-      setShowSuccessDialog(true);
+setSelectedBill(fullBill);
+setDetailOpen(true);          // open invoice preview
+setCreatedBillNumber(billNumber);
+
     } catch (error: any) {
       console.error("Error creating bill:", error);
       toast.error(error.message || "Failed to create bill");
@@ -445,9 +458,50 @@ await window.context.createBill({
                     <Input
                       placeholder="+91 XXXXX XXXXX"
                       value={patientInfo.phone}
-                      onChange={(e) => handlePatientChange("phone", e.target.value)}
+                      onChange={async (e) => {
+                        const value = e.target.value;
+                        handlePatientChange("phone", value);
+
+                        if (!isExistingPatient || value.length < 5) {
+                          setSuggestions([]);
+                          return;
+                        }
+                        
+                        const results = await window.context.searchCustomerByPhone(value);
+                       console.log("Search results:", results);
+                        setSuggestions(results || []);
+                        setShowSuggestions(true);
+                      }}  
+
                       className="mt-1"
                     />
+                    {isExistingPatient && showSuggestions && suggestions.length > 0 && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border rounded shadow">
+                        {suggestions.map((p) => (
+                          <div
+                            key={p.id}
+                            className="px-3 py-2 cursor-pointer hover:bg-muted"
+                            onClick={() => {
+                              setPatientInfo({
+                                name: p.name,
+                                phone: p.phone,
+                                age: p.age?.toString() || "",
+                                gender: p.gender || "",
+                                address: p.address || "",
+                              });
+
+                              setSuggestions([]);
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <div className="text-sm font-medium">{p.name}</div>
+                            <div className="text-xs text-muted-foreground">{p.phone}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+
                   </div>
                 )}
                 {(!template || template.config.age?.enabled) && (
@@ -893,6 +947,26 @@ await window.context.createBill({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+  <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0">
+    <div ref={printRef}>
+      {selectedBill && (
+        <InvoicePrintTemplate bill={selectedBill} />
+      )}
+    </div>
+
+    <div className="flex justify-end gap-2 p-4 border-t">
+      <Button variant="outline" onClick={() => setDetailOpen(false)}>
+        Close
+      </Button>
+      <Button onClick={handlePrint}>
+        <Printer className="w-4 h-4 mr-2" />
+        Print
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
       </div>
     </DashboardLayout>
   );

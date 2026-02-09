@@ -47,32 +47,48 @@ const CreateCustomer = () => {
     );
   };
 
-  const handleSubmit = () => {
-    // Validate required fields
-    const isValid = patients.every(
-      (p) => p.name.trim() && p.gender && p.contactNumber.trim()
-    );
+const handleSubmit = async () => {
+  const isValid = patients.every(
+    (p) => p.name.trim() && p.gender && p.contactNumber.trim()
+  );
 
-    if (!isValid) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields (Name, Gender, Contact Number)",
-        variant: "destructive",
-      });
-      return;
-    }
+  if (!isValid) {
+    toast({
+      title: "Validation Error",
+      description: "Please fill required fields",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    // Here you would save to database
+  try {
+    const payload = patients.map((p) => ({
+      name: p.name,
+      gender: p.gender,
+      age: p.age,
+      contactNumber: p.contactNumber,
+      address: p.address,
+    }));
+
+    await window.context.createCustomers(payload);
+
     toast({
       title: "Success",
-      description: `${patients.length} patient(s) created successfully`,
+      description: `${patients.length} patient(s) saved`,
     });
 
-    // Reset form
     setPatients([
       { id: crypto.randomUUID(), name: "", gender: "", age: "", contactNumber: "", address: "" },
     ]);
-  };
+  } catch (err) {
+    toast({
+      title: "Error",
+      description: "Failed to save patients",
+      variant: "destructive",
+    });
+  }
+};
+
 
   return (
     <DashboardLayout breadcrumbs={["Customers", "Create"]}>

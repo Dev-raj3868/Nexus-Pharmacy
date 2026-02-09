@@ -45,42 +45,27 @@ const CustomerList = () => {
   const nameFilter = searchParams.get("name") || "";
   const phoneFilter = searchParams.get("phone") || "";
 
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      if (!user) return;
-      
-      setLoading(true);
-      
-      let query = supabase
-        .from("profiles")
-        .select("id, first_name, last_name, phone, age, gender, created_at", { count: "exact" });
+ useEffect(() => {
+  const fetchCustomers = async () => {
+    setLoading(true);
 
-      if (nameFilter) {
-        query = query.or(`first_name.ilike.%${nameFilter}%,last_name.ilike.%${nameFilter}%`);
-      }
-      if (phoneFilter) {
-        query = query.ilike("phone", `%${phoneFilter}%`);
-      }
+    try {
+      const data = await window.context.getCustomers({
+        name: nameFilter || undefined,
+        phone: phoneFilter || undefined,
+      });
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      setCustomers(data || []);
+      setTotalCount(data?.length || 0);
+    } catch (err) {
+      console.error("Failed to fetch customers", err);
+    }
 
-      const { data, count, error } = await query
-        .order("created_at", { ascending: false })
-        .range(from, to);
+    setLoading(false);
+  };
 
-      if (error) {
-        console.error("Error fetching customers:", error);
-      } else {
-        setCustomers(data || []);
-        setTotalCount(count || 0);
-      }
-      
-      setLoading(false);
-    };
-
-    fetchCustomers();
-  }, [user, nameFilter, phoneFilter, currentPage]);
+  fetchCustomers();
+}, [nameFilter, phoneFilter, currentPage]);
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 

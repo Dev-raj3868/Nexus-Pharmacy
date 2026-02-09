@@ -28,27 +28,15 @@ const GetInventoryPurchase = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  
   const handleSearch = async () => {
-    if (!user) return;
-
     setIsLoading(true);
     try {
-      let query = supabase
-        .from("purchase_orders")
-        .select("*, purchase_order_items(*)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (fromDate) {
-        query = query.gte("expected_date", format(fromDate, "yyyy-MM-dd"));
-      }
-      if (toDate) {
-        query = query.lte("expected_date", format(toDate, "yyyy-MM-dd"));
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const data = await window.context.getPurchaseOrders({
+        fromDate: fromDate ? format(fromDate, "yyyy-MM-dd") : undefined,
+        toDate: toDate ? format(toDate, "yyyy-MM-dd") : undefined,
+      });
+      console.log("Fetched purchase orders:", data);
       setPurchaseOrders(data || []);
     } catch (error) {
       console.error("Error fetching purchase orders:", error);
@@ -56,7 +44,6 @@ const GetInventoryPurchase = () => {
       setIsLoading(false);
     }
   };
-
   useEffect(() => {
     if (user) {
       handleSearch();
@@ -159,16 +146,16 @@ const GetInventoryPurchase = () => {
                       <span
                         className={cn(
                           "px-2 py-1 rounded-full text-xs font-medium",
-                          order.status === "Pending" && "bg-yellow-100 text-yellow-800",
-                          order.status === "Approved" && "bg-green-100 text-green-800",
-                          order.status === "Completed" && "bg-blue-100 text-blue-800",
-                          order.status === "Cancelled" && "bg-red-100 text-red-800"
+                          order.data.payment_status === "Pending" && "bg-yellow-100 text-yellow-800",
+                          order.data.payment_status === "Approved" && "bg-green-100 text-green-800",
+                          order.data.payment_status === "Completed" && "bg-blue-100 text-blue-800",
+                          order.data.payment_status === "Cancelled" && "bg-red-100 text-red-800"
                         )}
                       >
-                        {order.status}
+                        {order.data.payment_status}
                       </span>
                     </TableCell>
-                    <TableCell>{order.purchase_order_items?.length || 0}</TableCell>
+                    <TableCell>{order.data.items?.length || 0}</TableCell>
                     <TableCell>
                       {format(new Date(order.created_at), "dd-MM-yyyy")}
                     </TableCell>

@@ -25,6 +25,7 @@ import {
   Send,
   CreditCard,
   Boxes,
+  Network,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -32,6 +33,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import NetworkIndicator from "./NetworkIndicator";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -154,6 +156,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
         </div>
 
         <div className="flex items-center gap-4">
+          <NetworkIndicator />
           <span className="text-sm text-foreground">Welcome</span>
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-full bg-muted overflow-hidden">
@@ -261,7 +264,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
                 <Boxes className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && (
                   <>
-                    <span className="flex-1 text-left">Inventory Mgmt</span>
+                    <span className="flex-1 text-left">Inventory</span>
                     <ChevronDown
                       className={`w-4 h-4 transition-transform ${
                         inventoryMgmtOpen ? "rotate-180" : ""
@@ -285,7 +288,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
                     <Package className="w-4 h-4 flex-shrink-0" />
                     {sidebarOpen && (
                       <>
-                        <span className="flex-1 text-left">Inventory</span>
+                        <span className="flex-1 text-left">Stock</span>
                         <ChevronDown
                           className={`w-3 h-3 transition-transform ${
                             inventoryOpen ? "rotate-180" : ""
@@ -332,7 +335,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
                     <ShoppingCart className="w-4 h-4 flex-shrink-0" />
                     {sidebarOpen && (
                       <>
-                        <span className="flex-1 text-left">Inventory Purchase</span>
+                        <span className="flex-1 text-left">Purchase Order</span>
                         <ChevronDown
                           className={`w-3 h-3 transition-transform ${
                             inventoryPurchaseOpen ? "rotate-180" : ""
@@ -379,7 +382,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
                     <PackageCheck className="w-4 h-4 flex-shrink-0" />
                     {sidebarOpen && (
                       <>
-                        <span className="flex-1 text-left">Inventory Receive</span>
+                        <span className="flex-1 text-left">Receive Order</span>
                         <ChevronDown
                           className={`w-3 h-3 transition-transform ${
                             inventoryReceiveOpen ? "rotate-180" : ""
@@ -426,7 +429,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
                     <Send className="w-4 h-4 flex-shrink-0" />
                     {sidebarOpen && (
                       <>
-                        <span className="flex-1 text-left">Issue</span>
+                        <span className="flex-1 text-left">Issue Order</span>
                         <ChevronDown
                           className={`w-3 h-3 transition-transform ${
                             issueOpen ? "rotate-180" : ""

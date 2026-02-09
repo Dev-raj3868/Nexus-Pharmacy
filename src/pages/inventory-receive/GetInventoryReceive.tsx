@@ -97,7 +97,8 @@ const GetInventoryReceive = () => {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                    {fromDate ? format(fromDate, "dd-MM-yyyy") : "16-01-2026"}
+                   {fromDate ? format(fromDate, "dd-MM-yyyy") : "From Date"}
+
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -122,7 +123,7 @@ const GetInventoryReceive = () => {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                    {toDate ? format(toDate, "dd-MM-yyyy") : "16-01-2026"}
+                    {toDate ? format(toDate, "dd-MM-yyyy") : "To Date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
