@@ -106,7 +106,22 @@ const InventoryManagement = () => {
       console.log("💾 Saving inventory:", payload);
 
       await window.context.createInventory(payload);
-
+       setItems((prev) => [
+  ...prev,
+  {
+    id: formData.itemId,
+    item_name: itemNameInput,
+    item_id: formData.itemId,
+    category: formData.category,
+    batch_no: formData.batchNo,
+    unit: formData.unit,
+    stock: 0, // default
+    min_stock: Number(formData.minStock),
+    rack: formData.rack || null,
+    product_type: formData.productType || null,
+  },
+]);
+ 
       toast.success("Item added successfully");
 
       setItemNameInput("");
@@ -135,6 +150,17 @@ const InventoryManagement = () => {
   const handleUpdate = () => {
     setUpdated(true);
     toast.success("Inventory updated successfully");
+     setItems([]);
+    setItemNameInput("");
+    setFormData({
+      itemId: "",
+      category: "",
+      batchNo: "",
+      unit: "",
+      minStock: "",
+      rack: "",
+      productType: "",
+    });
     setTimeout(() => setUpdated(false), 2000);
   };
 

@@ -126,16 +126,26 @@ const GetInventoryList = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedItems = items.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleSearch = () => {
-    setCurrentPage(1);
-  };
+const handleSearch = async () => {
+  const data = await window.context.getInventory({
+    name: itemName || undefined,
+    category: category || undefined,
+  });
 
-  const handleGetAll = () => {
-    setItemName("");
-    setCategory("");
-    setItems(initialItems);
-    setCurrentPage(1);
-  };
+  setItems(data);
+  setCurrentPage(1);
+};
+
+
+const handleGetAll = async () => {
+  setItemName("");
+  setCategory("");
+
+  const data = await window.context.getInventory();
+  setItems(data);
+  setCurrentPage(1);
+};
+
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
