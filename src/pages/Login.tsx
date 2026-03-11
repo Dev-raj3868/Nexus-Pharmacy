@@ -24,25 +24,28 @@ const Login = () => {
   }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !password) {
-      toast.error("Please enter both email and password");
-      return;
-    }
+  e.preventDefault();
 
-    setLoading(true);
-    const { error } = await signIn(email, password);
-    setLoading(false);
+  if (!email || !password) {
+    toast.error("Please enter both email and password");
+    return;
+  }
 
-    if (error) {
-      toast.error(error.message || "Failed to sign in");
-    } else {
-      toast.success("Welcome back!");
-      navigate("/dashboard");
-    }
-  };
+  setLoading(true);
 
+  const result = await signIn(email, password);
+
+  setLoading(false);
+
+  if (result.error) {
+    toast.error(result.error.message || "Failed to sign in");
+    return;
+  }
+
+  toast.success("Welcome back!");
+
+  navigate("/dashboard"); // ✅ force navigation
+};
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

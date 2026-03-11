@@ -269,15 +269,15 @@ const handlePrint = useReactToPrint({
       return;
     }
 
-    if (patientList.length === 0) {
-      toast.error("Please add at least one patient");
-      return;
-    }
+    // if (patientList.length === 0) {
+    //   toast.error("Please add at least one patient");
+    //   return;
+    // }
 
-    if (itemList.length === 0) {
-      toast.error("Please add at least one item");
-      return;
-    }
+    // if (itemList.length === 0) {
+    //   toast.error("Please add at least one item");
+    //   return;
+    // }
 
     setIsSubmitting(true);
 

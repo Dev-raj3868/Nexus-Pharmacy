@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import * as XLSX from "xlsx";
 import {
   Select,
   SelectContent,
@@ -62,7 +63,7 @@ const CreateInventoryReceive = () => {
   const [unit, setUnit] = useState("");
   const [remark, setRemark] = useState("");
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
-
+    const [excelLink, setExcelLink] = useState("");
   const handleAddOrderDetail = () => {
     if (!purchaseOrderId || !vendorName) {
       toast.error("Please fill in Purchase Order ID and Vendor Name");
@@ -83,7 +84,43 @@ const CreateInventoryReceive = () => {
     setPaymentStatus("Pending");
     setDeliveryStatus("Completed");
   };
+const handleImportExcel = async () => {
+ // const excelLink = prompt("Paste Excel file link");
 
+  if (!excelLink) return;
+
+  try {
+    const response = await fetch(excelLink);
+    const data = await response.arrayBuffer();
+
+    const workbook = XLSX.read(data);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+
+const parsedItems = rows
+  .slice(2) // skip first two rows
+  .filter((row) => row && row.length > 2) // remove empty rows
+  .map((row) => ({
+    id: crypto.randomUUID(),
+    item_id: row[1] || `ITEM-${Date.now()}`,
+    item_name: row[2],
+    received_quantity: Number(row[3]),
+    category: row[4] || "",
+    unit: row[5] || "",
+    remark: row[6] || "",
+  }));
+
+setItemDetails((prev) => [...prev, ...parsedItems]);
+console.log("Parsed Items:", parsedItems);
+
+   // setItemDetails((prev) => [...prev, ...parsedItems]);
+
+    toast.success("Excel data imported successfully");
+  } catch (err) {
+    toast.error("Failed to import Excel file");
+  }
+};
   const handleRemoveOrderDetail = (id: string) => {
     setOrderDetails(orderDetails.filter((d) => d.id !== id));
   };
@@ -259,6 +296,17 @@ const CreateInventoryReceive = () => {
             >
               Add
             </button>
+         
+
+<Input
+  placeholder="Paste Excel file link"
+  value={excelLink}
+  onChange={(e) => setExcelLink(e.target.value)}
+/>
+
+<Button onClick={handleImportExcel}>
+  Import Excel
+</Button>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-4">

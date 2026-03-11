@@ -135,91 +135,73 @@ const Signup = () => {
       await handleSignup();
     }
   };
+const handleSignup = async () => {
+  setLoading(true);
 
-  const handleSignup = async () => {
-    setLoading(true);
+  try {
 
-    try {
-      // Sign up user
-      const { error: signUpError, data } = await signUp(email, password);
-      
-      if (signUpError) {
-        toast.error(signUpError.message || "Failed to create account");
-        setLoading(false);
-        return;
+    const payload = {
+      adminData: {
+        email,
+        password,
+        first_name: firstName,
+        last_name: lastName,
+        age,
+        gender,
+        dob,
+        phone_number: phone
+      },
+
+      clinicData: {
+        clinicName,
+        gstNumber,
+        phoneNumber: clinicPhone,
+        landlineNumber: landline,
+        location,
+        shiftInformation: shifts
+      },
+
+      pharmacyData: {
+        pharmacyName,
+        gstNumber: pharmacyGst,
+        fssaiId: fssiId,
+        dlNo: dlNo,
+        address,
+        pinCode: pincode,
+        phoneNumber: pharmacyPhone,
+        landlineNumber: pharmacyLandline,
+        shiftInformation: shifts
       }
+    };
 
-      const userId = data.user?.id;
-      if (!userId) {
-        toast.error("Failed to get user ID");
-        setLoading(false);
-        return;
-      }
+    const res = await fetch("http://127.0.0.1:8000/api/v1/pharmacy/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
 
-      // Upload avatar
-      let avatarUrl = null;
-      if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${userId}/${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, avatarFile);
-        
-        if (uploadError) {
-          console.error('Avatar upload error:', uploadError);
-        } else {
-          const { data: urlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(fileName);
-          avatarUrl = urlData.publicUrl;
-        }
-      }
+    const data = await res.json();
 
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([{
-          user_id: userId,
-          first_name: firstName,
-          last_name: lastName,
-          age: parseInt(age),
-          gender,
-          date_of_birth: dob,
-          phone,
-          avatar_url: avatarUrl,
-          clinic_name: clinicName,
-          clinic_gst_number: gstNumber,
-          clinic_phone: clinicPhone,
-          clinic_landline: landline,
-          clinic_location: location,
-          pharmacy_name: pharmacyName,
-          pharmacy_gst_number: pharmacyGst,
-          fssai_id: fssiId,
-          dl_no: dlNo,
-          pharmacy_address: address,
-          pharmacy_pincode: pincode,
-          pharmacy_phone: pharmacyPhone,
-          pharmacy_landline: pharmacyLandline,
-          shifts: JSON.parse(JSON.stringify(shifts)),
-        }]);
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        toast.error("Account created but profile setup failed. Please update your profile later.");
-      } else {
-        toast.success("Account created successfully!");
-      }
-
-      navigate("/dashboard");
-    } catch (error) {
-      console.error('Signup error:', error);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      toast.error(data.message || "Signup failed");
+      return;
     }
-  };
 
+    toast.success("Account created successfully");
+
+    localStorage.setItem("token", data.token);
+
+    navigate("/dashboard");
+
+  } catch (error) {
+    console.error(error);
+    toast.error("Signup failed");
+  } finally {
+    setLoading(false);
+  }
+};
   const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
 
   if (authLoading) {

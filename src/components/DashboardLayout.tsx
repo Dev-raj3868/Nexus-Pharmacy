@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,15 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
   breadcrumbs?: string[];
 }
-
+type Profile = {
+  admin_id: string;
+  pharmacy?: {
+    name?: string;
+  };
+  clinic?: {
+    name?: string;
+  };
+};
 const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,7 +99,7 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
   const [customersOpen, setCustomersOpen] = useState(
     location.pathname.includes("/dashboard/customers")
   );
-
+  const socketRef = useRef<WebSocket | null>(null);
   useEffect(() => {
     if (!loading && !user) {
       navigate("/login");
@@ -104,6 +112,76 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
     }
   }, [user, profile, refreshProfile]);
 
+
+useEffect(() => {
+  if (socketRef.current) return; // prevents double connection
+
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  console.log("Creating WebSocket with token:", token);
+
+  const ws = new WebSocket(`ws://localhost:8000/ws?token=${token}`);
+  socketRef.current = ws;
+
+  ws.onopen = () => {
+    console.log("✅ WebSocket Connected");
+  };
+
+  ws.onmessage = (msg) => {
+    console.log("📩 Message:", msg.data);
+  };
+
+  ws.onerror = (err) => {
+    console.log("❌ WebSocket error:", err);
+  };
+
+  ws.onclose = () => {
+    console.log("⚠️ WebSocket disconnected");
+  };
+
+  return () => {
+    ws.close();
+    socketRef.current = null;
+  };
+}, []);
+const sendBulkSync = () => {
+  if (!socketRef.current) {
+    console.log("❌ Socket not created");
+    return;
+  }
+
+  console.log("WS ReadyState:", socketRef.current.readyState);
+
+  if (socketRef.current.readyState !== WebSocket.OPEN) {
+    console.log("❌ WebSocket not connected yet");
+    return;
+  }
+
+  const payload = {
+    type: "BULK_SYNC",
+    payload: {
+      Bill: [
+        {
+          id: "bill-001",
+          billNumber: "BILL-001",
+          patientName: "Rahul",
+          patientPhone: "9876543210",
+          billDate: "2026-03-07",
+          totalAmount: 1500,
+          paymentStatus: "PAID",
+          items: "{\"item\":\"Paracetamol\",\"qty\":2}",
+          templateSnapshot: "{\"template\":\"default\"}",
+          createdAt: Date.now()
+        }
+      ]
+    }
+  };
+
+  socketRef.current.send(JSON.stringify(payload));
+
+  console.log("✅ Data sent", payload);
+};
   const handleLogout = async () => {
     await signOut();
     navigate("/login");
@@ -121,20 +199,25 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
     return null;
   }
 
-  const getInitials = () => {
-    if (profile) {
-      return `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase();
-    }
-    return user.email?.charAt(0).toUpperCase() || "U";
-  };
+const getInitials = () => {
+  const name = getFullName();
 
-  const getFullName = () => {
-    if (profile) {
-      return `${profile.first_name} ${profile.last_name}`;
-    }
-    return user.email?.split("@")[0] || "User";
-  };
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+const getFullName = () => {
+  if (!profile) return "User";
 
+  return (
+    profile.pharmacy?.name ||
+    profile.clinic?.name ||
+    "User"
+  );
+};
   return (
     <div className="min-h-screen bg-background">
       {/* Top Header */}
@@ -153,6 +236,10 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
             <span className="text-primary font-semibold">PHAR</span>
             <span className="text-muted-foreground">MACY</span>
           </span>
+          <Button onClick={sendBulkSync}>
+  <Network className="w-4 h-4 mr-2" />
+  Sync Data
+</Button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -160,26 +247,26 @@ const DashboardLayout = ({ children, breadcrumbs = [] }: DashboardLayoutProps) =
           <span className="text-sm text-foreground">Welcome</span>
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-full bg-muted overflow-hidden">
-              {profile?.avatar_url ? (
+              {/* {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />
-              ) : (
+              ) : ( */}
                 <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center text-foreground font-semibold">
                   {getInitials()}
                 </div>
-              )}
+              {/* // )} */}
             </div>
             <div className="text-sm">
               <p className="font-medium text-foreground">{getFullName()}</p>
-              <p className="text-muted-foreground text-xs">{user.email}</p>
+              {/* <p className="text-muted-foreground text-xs">{user.email}</p> */}
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
             <span className="text-xs font-medium text-secondary-foreground">
-              {profile?.pharmacy_name?.slice(0, 6).toUpperCase() || "NEXUS"}
+              {profile?.pharmacy?.name?.slice(0, 6).toUpperCase() || "NEXUS"}
             </span>
           </div>
         </div>
