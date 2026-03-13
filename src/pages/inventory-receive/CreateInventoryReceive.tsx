@@ -150,6 +150,42 @@ console.log("Parsed Items:", parsedItems);
     setRemark("");
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    const data = e.target?.result;
+    const workbook = XLSX.read(data, { type: "array" });
+
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+
+    const parsedItems = rows
+      .slice(2)
+      .filter((row) => row && row.length > 2)
+      .map((row) => ({
+        id: crypto.randomUUID(),
+        item_id: row[1] || `ITEM-${Date.now()}`,
+        item_name: row[2],
+        received_quantity: Number(row[3]),
+        category: row[4] || "",
+        unit: row[5] || "",
+        remark: row[6] || "",
+      }));
+
+    setItemDetails((prev) => [...prev, ...parsedItems]);
+
+    toast.success("Excel file imported successfully");
+  };
+
+  reader.readAsArrayBuffer(file);
+};
+
   const handleRemoveItemDetail = (id: string) => {
     setItemDetails(itemDetails.filter((i) => i.id !== id));
   };
@@ -307,6 +343,11 @@ console.log("Parsed Items:", parsedItems);
 <Button onClick={handleImportExcel}>
   Import Excel
 </Button>
+<input
+  type="file"
+  accept=".xlsx,.xls"
+  onChange={handleFileUpload}
+/>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-4">
