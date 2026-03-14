@@ -19,6 +19,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,7 +70,24 @@ const CreateInventoryReceive = () => {
   const [unit, setUnit] = useState("");
   const [remark, setRemark] = useState("");
   const [itemDetails, setItemDetails] = useState<ItemDetail[]>([]);
-    const [excelLink, setExcelLink] = useState("");
+  const [excelLink, setExcelLink] = useState("");
+
+
+  //mapping details for excel
+  const [excelRows, setExcelRows] = useState<any[][]>([]);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [showMapping, setShowMapping] = useState(false);
+
+  const [mapping, setMapping] = useState({
+    item_id: "",
+    item_name: "",
+    received_quantity: "",
+    category: "",
+    unit: "",
+    remark: "",
+  });
+  const [hasSavedMapping, setHasSavedMapping] = useState(false);
+
   const handleAddOrderDetail = () => {
     if (!purchaseOrderId || !vendorName) {
       toast.error("Please fill in Purchase Order ID and Vendor Name");
@@ -84,43 +108,43 @@ const CreateInventoryReceive = () => {
     setPaymentStatus("Pending");
     setDeliveryStatus("Completed");
   };
-const handleImportExcel = async () => {
- // const excelLink = prompt("Paste Excel file link");
+  const handleImportExcel = async () => {
+    // const excelLink = prompt("Paste Excel file link");
 
-  if (!excelLink) return;
+    if (!excelLink) return;
 
-  try {
-    const response = await fetch(excelLink);
-    const data = await response.arrayBuffer();
+    try {
+      const response = await fetch(excelLink);
+      const data = await response.arrayBuffer();
 
-    const workbook = XLSX.read(data);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
 
-const parsedItems = rows
-  .slice(2) // skip first two rows
-  .filter((row) => row && row.length > 2) // remove empty rows
-  .map((row) => ({
-    id: crypto.randomUUID(),
-    item_id: row[1] || `ITEM-${Date.now()}`,
-    item_name: row[2],
-    received_quantity: Number(row[3]),
-    category: row[4] || "",
-    unit: row[5] || "",
-    remark: row[6] || "",
-  }));
+      const parsedItems = rows
+        .slice(2) // skip first two rows
+        .filter((row) => row && row.length > 2) // remove empty rows
+        .map((row) => ({
+          id: crypto.randomUUID(),
+          item_id: row[1] || `ITEM-${Date.now()}`,
+          item_name: row[2],
+          received_quantity: Number(row[3]),
+          category: row[4] || "",
+          unit: row[5] || "",
+          remark: row[6] || "",
+        }));
 
-setItemDetails((prev) => [...prev, ...parsedItems]);
-console.log("Parsed Items:", parsedItems);
+      setItemDetails((prev) => [...prev, ...parsedItems]);
+      console.log("Parsed Items:", parsedItems);
 
-   // setItemDetails((prev) => [...prev, ...parsedItems]);
+      // setItemDetails((prev) => [...prev, ...parsedItems]);
 
-    toast.success("Excel data imported successfully");
-  } catch (err) {
-    toast.error("Failed to import Excel file");
-  }
-};
+      toast.success("Excel data imported successfully");
+    } catch (err) {
+      toast.error("Failed to import Excel file");
+    }
+  };
   const handleRemoveOrderDetail = (id: string) => {
     setOrderDetails(orderDetails.filter((d) => d.id !== id));
   };
@@ -151,72 +175,143 @@ console.log("Parsed Items:", parsedItems);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setHasSavedMapping(false);
 
-  const reader = new FileReader();
+    const reader = new FileReader();
 
-  reader.onload = (e) => {
-    const data = e.target?.result;
-    const workbook = XLSX.read(data, { type: "array" });
+    reader.onload = (e) => {
+      const data = e.target?.result;
 
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+      const workbook = XLSX.read(data, { type: "array" });
 
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    const parsedItems = rows
-      .slice(2)
-      .filter((row) => row && row.length > 2)
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+
+      if (!rows.length) {
+        toast.error("Excel file empty");
+        return;
+      }
+
+      const headers = rows[0].map(String);
+
+      setExcelHeaders(headers);
+      setExcelRows(rows);
+
+      const saved = localStorage.getItem("inventoryExcelMapping");
+
+      if (saved) {
+        const savedMapping = JSON.parse(saved);
+
+        const filteredMapping: any = {};
+
+        Object.entries(savedMapping).forEach(([key, value]) => {
+          if (headers.includes(value as string)) {
+            filteredMapping[key] = value;
+          }
+        });
+
+        if (Object.keys(filteredMapping).length > 0) {
+          setMapping((prev) => ({
+            ...prev,
+            ...filteredMapping,
+          }));
+
+          setHasSavedMapping(true);
+        }
+      }
+
+      setShowMapping(true);
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  const applyMapping = () => {
+    if (!mapping.item_name || !mapping.received_quantity) {
+      toast.error("Item Name and Quantity mapping required");
+      return;
+    }
+
+    const headerIndex: any = {};
+
+    excelHeaders.forEach((h, i) => {
+      headerIndex[h] = i;
+    });
+
+    const parsedItems = excelRows
+      .slice(1)
+      .filter((row) => row && row.length > 0)
       .map((row) => ({
         id: crypto.randomUUID(),
-        item_id: row[1] || `ITEM-${Date.now()}`,
-        item_name: row[2],
-        received_quantity: Number(row[3]),
-        category: row[4] || "",
-        unit: row[5] || "",
-        remark: row[6] || "",
+        item_id:
+          row[headerIndex[mapping.item_id]] || `ITEM-${Date.now()}`,
+        item_name: row[headerIndex[mapping.item_name]],
+        received_quantity: Number(
+          row[headerIndex[mapping.received_quantity]]
+        ),
+        category: row[headerIndex[mapping.category]] || "",
+        unit: row[headerIndex[mapping.unit]] || "",
+        remark: row[headerIndex[mapping.remark]] || "",
       }));
 
     setItemDetails((prev) => [...prev, ...parsedItems]);
 
-    toast.success("Excel file imported successfully");
+    setShowMapping(false);
+
+    toast.success("Excel imported successfully");
   };
 
-  reader.readAsArrayBuffer(file);
-};
+  const saveMapping = () => {
+    localStorage.setItem(
+      "inventoryExcelMapping",
+      JSON.stringify(mapping)
+    );
+
+    toast.success("Mapping saved for future imports");
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("inventoryExcelMapping");
+
+    if (saved) {
+      setMapping(JSON.parse(saved));
+    }
+  }, []);
 
   const handleRemoveItemDetail = (id: string) => {
     setItemDetails(itemDetails.filter((i) => i.id !== id));
   };
 
   const handleSave = async () => {
-  if (orderDetails.length === 0) {
-    toast.error("Please add at least one order detail")
-    return
+    if (orderDetails.length === 0) {
+      toast.error("Please add at least one order detail")
+      return
+    }
+
+    if (itemDetails.length === 0) {
+      toast.error("Please add at least one item")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      await window.context.createReceiveMaterial({
+        orderDetails,   // names unchanged
+        itemDetails
+      })
+
+      toast.success("Inventory receive order created successfully!")
+      navigate("/dashboard/inventory-receive")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create inventory receive order")
+    } finally {
+      setIsLoading(false)
+    }
   }
-
-  if (itemDetails.length === 0) {
-    toast.error("Please add at least one item")
-    return
-  }
-
-  setIsLoading(true)
-
-  try {
-    await window.context.createReceiveMaterial({
-      orderDetails,   // names unchanged
-      itemDetails
-    })
-
-    toast.success("Inventory receive order created successfully!")
-    navigate("/dashboard/inventory-receive")
-  } catch (error: any) {
-    toast.error(error.message || "Failed to create inventory receive order")
-  } finally {
-    setIsLoading(false)
-  }
-}
 
 
   return (
@@ -332,22 +427,22 @@ console.log("Parsed Items:", parsedItems);
             >
               Add
             </button>
-         
 
-<Input
-  placeholder="Paste Excel file link"
-  value={excelLink}
-  onChange={(e) => setExcelLink(e.target.value)}
-/>
 
-<Button onClick={handleImportExcel}>
-  Import Excel
-</Button>
-<input
-  type="file"
-  accept=".xlsx,.xls"
-  onChange={handleFileUpload}
-/>
+            <Input
+              placeholder="Paste Excel file link"
+              value={excelLink}
+              onChange={(e) => setExcelLink(e.target.value)}
+            />
+
+            <Button onClick={handleImportExcel}>
+              Import Excel
+            </Button>
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+            />
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-4">
@@ -468,6 +563,7 @@ console.log("Parsed Items:", parsedItems);
               </Table>
             </div>
           )}
+
         </div>
 
         {/* Save Button */}
@@ -481,6 +577,173 @@ console.log("Parsed Items:", parsedItems);
           </Button>
         </div>
       </div>
+      <Dialog open={showMapping} onOpenChange={setShowMapping}>
+        <DialogContent className="max-w-lg">
+
+          <DialogHeader>
+            <DialogTitle>Map Excel Columns</DialogTitle>
+          </DialogHeader>
+
+          {hasSavedMapping && (
+            <p className="text-sm text-muted-foreground">
+              Saved mapping detected. Adjust if needed.
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 mt-4">
+
+            <div>
+              <Label>Item ID</Label>
+              <Select
+                value={mapping.item_id}
+                onValueChange={(v) =>
+                  setMapping({ ...mapping, item_id: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {excelHeaders.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Item Name *</Label>
+              <Select
+                value={mapping.item_name}
+                onValueChange={(v) =>
+                  setMapping({ ...mapping, item_name: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {excelHeaders.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Received Quantity *</Label>
+              <Select
+                value={mapping.received_quantity}
+                onValueChange={(v) =>
+                  setMapping({ ...mapping, received_quantity: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {excelHeaders.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Category</Label>
+              <Select
+                value={mapping.category}
+                onValueChange={(v) =>
+                  setMapping({ ...mapping, category: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {excelHeaders.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Unit</Label>
+              <Select
+                value={mapping.unit}
+                onValueChange={(v) =>
+                  setMapping({ ...mapping, unit: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {excelHeaders.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Remark</Label>
+              <Select
+                value={mapping.remark}
+                onValueChange={(v) =>
+                  setMapping({ ...mapping, remark: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {excelHeaders.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+          </div>
+
+          <DialogFooter className="mt-4 flex gap-2">
+
+            <Button
+              variant="outline"
+              onClick={() => setShowMapping(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              variant="secondary"
+              onClick={saveMapping}
+            >
+              Save Mapping
+            </Button>
+
+            <Button onClick={applyMapping}>
+              Import Data
+            </Button>
+
+          </DialogFooter>
+
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
