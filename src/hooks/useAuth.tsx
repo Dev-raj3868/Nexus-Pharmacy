@@ -5,11 +5,17 @@ interface User {
 }
 
 interface Profile {
-  admin_id: string;
-  pharmacy: any;
-  clinic: any;
+  admin: {
+    admin_id: string;
+    first_name: string;
+  };
+  pharmacy?: {
+    pharmacyName?: string;
+  };
+  clinic?: {
+    clinicName?: string;
+  };
 }
-
 interface SignupPayload {
   adminData: any;
   clinicData: any;
@@ -39,10 +45,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   /* ---------------- PROFILE FETCH ---------------- */
+useEffect(() => {
+  const token = localStorage.getItem("token");
+  const savedProfile = localStorage.getItem("profile");
 
+  if (token && savedProfile) {
+    const parsedProfile = JSON.parse(savedProfile);
+
+    setUser({
+      admin_id: parsedProfile.admin.admin_id,
+    });
+
+    setProfile(parsedProfile);
+  }
+
+  setLoading(false);
+}, []);
 // const fetchProfile = async () => {
 //   try {
 //     const token = localStorage.getItem("token");
@@ -88,19 +109,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   //   setLoading(false);
   // }, []);
-  useEffect(() => {
-  const token = localStorage.getItem("token");
 
-  if (token) {
-    // decode token or just assume user exists
-    setUser({ admin_id: "admin" });
-  }
-
-  setLoading(false);
-}, []);
   /* ---------------- LOGIN ---------------- */
-
-  const signIn = async (email: string, password: string) => {
+const signIn = async (email: string, password: string) => {
   try {
     const res = await fetch(`${API}/api/v1/pharmacy/login`, {
       method: "POST",
@@ -116,12 +127,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: new Error(result.message || "Login failed") };
     }
 
+    // ✅ save token
     localStorage.setItem("token", result.token);
-
-    // ✅ set user immediately
+    localStorage.setItem("profile", JSON.stringify(result.data));
+    // ✅ set user
     setUser({
-      admin_id: result.admin_id || "admin",
+      admin_id: result.data.admin.admin_id,
     });
+
+    // ✅ set FULL profile directly
+    setProfile(result.data);
 
     setLoading(false);
 
@@ -132,36 +147,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: err as Error };
   }
 };
-
+  
   /* ---------------- SIGNUP ---------------- */
 
-  const signUp = async (payload: SignupPayload) => {
-    try {
-      const res = await fetch(`${API}/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+ const signUp = async (payload: SignupPayload) => {
+  try {
+    const res = await fetch(`${API}/signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-      const result = await res.json();
+    const result = await res.json();
 
-      if (!res.ok || result.resSuccess !== 1) {
-        return { error: new Error(result.message || "Signup failed") };
-      }
-
-      // backend already returns token
-      if (result.token) {
-        localStorage.setItem("token", result.token);
-      //  await fetchProfile();
-      }
-
-      return { error: null, token: result.token };
-    } catch (err) {
-      return { error: err as Error };
+    if (!res.ok || result.resSuccess !== 1) {
+      return { error: new Error(result.message || "Signup failed") };
     }
-  };
+
+    if (result.token) {
+      localStorage.setItem("token", result.token);
+
+      // ✅ set user after signup
+      setUser({
+        admin_id: result.adminId,
+      });
+    }
+
+    return { error: null, token: result.token };
+  } catch (err) {
+    return { error: err as Error };
+  }
+};
 
   /* ---------------- LOGOUT ---------------- */
 
@@ -173,10 +191,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /* ---------------- REFRESH PROFILE ---------------- */
 
-  const refreshProfile = async () => {
-  //  await fetchProfile();
-  };
+ const refreshProfile = async () => {
 
+};
   return (
     <AuthContext.Provider
       value={{
