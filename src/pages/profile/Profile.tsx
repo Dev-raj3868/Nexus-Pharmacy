@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/select";
 import { Upload, Plus, Trash2, Calendar, Loader2, Save } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -62,36 +61,37 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    if (profile) {
-      setFirstName(profile.first_name || "");
-      setLastName(profile.last_name || "");
-      setAge(profile.age?.toString() || "");
-      setGender(profile.gender || "");
-      setDob(profile.date_of_birth || "");
-      setPhone(profile.phone || "");
-      setAvatarPreview(profile.avatar_url || null);
+  if (profile) {
+    // ADMIN
+    setFirstName(profile.admin?.first_name || "");
+    setLastName(profile.admin?.last_name || "");
+    setGender(profile.admin?.gender || "");
+    setDob(profile.admin?.dob || "");
+    setPhone(profile.admin?.phone_number || "");
 
-      setClinicName(profile.clinic_name || "");
-      setGstNumber(profile.clinic_gst_number || "");
-      setClinicPhone(profile.clinic_phone || "");
-      setLandline(profile.clinic_landline || "");
-      setLocation(profile.clinic_location || "");
+    // CLINIC
+    setClinicName(profile.clinic?.clinicName || "");
+    setGstNumber(profile.clinic?.gstNumber || "");
+    setClinicPhone(profile.clinic?.phoneNumber || "");
+    setLandline(profile.clinic?.landlineNumber || "");
+    setLocation(profile.clinic?.location || "");
 
-      setPharmacyName(profile.pharmacy_name || "");
-      setPharmacyGst(profile.pharmacy_gst_number || "");
-      setFssiId(profile.fssai_id || "");
-      setDlNo(profile.dl_no || "");
-      setAddress(profile.pharmacy_address || "");
-      setPincode(profile.pharmacy_pincode || "");
-      setPharmacyPhone(profile.pharmacy_phone || "");
-      setPharmacyLandline(profile.pharmacy_landline || "");
+    // PHARMACY
+    setPharmacyName(profile.pharmacy?.pharmacyName || "");
+    setPharmacyGst(profile.pharmacy?.gstNumber || "");
+    setFssiId(profile.pharmacy?.fssaiId || "");
+    setDlNo(profile.pharmacy?.dlNo || "");
+    setAddress(profile.pharmacy?.address || "");
+    setPincode(profile.pharmacy?.pinCode || "");
+    setPharmacyPhone(profile.pharmacy?.phoneNumber || "");
+    setPharmacyLandline(profile.pharmacy?.landlineNumber || "");
 
-      if (profile.shifts && Array.isArray(profile.shifts)) {
-        setShifts(profile.shifts as ShiftInfo[]);
-      }
+    // SHIFTS
+    if (profile.pharmacy?.shiftInformation) {
+      setShifts(profile.pharmacy.shiftInformation);
     }
-  }, [profile]);
-
+  }
+}, [profile]);
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -116,68 +116,59 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    if (!user || !profile) return;
-    setLoading(true);
+  if (!user || !profile) return;
+  setLoading(true);
 
-    try {
-      let avatarUrl = profile.avatar_url;
+  try {
+    const token = localStorage.getItem("token");
 
-      // Upload new avatar if changed
-      if (avatarFile) {
-        const fileExt = avatarFile.name.split(".").pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+    const res = await fetch("http://127.0.0.1:8000/profile", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: lastName,
+        age: parseInt(age) || null,
+        gender,
+        date_of_birth: dob || null,
+        phone,
 
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(fileName, avatarFile);
+        clinic_name: clinicName,
+        clinic_gst_number: gstNumber,
+        clinic_phone: clinicPhone,
+        clinic_landline: landline,
+        clinic_location: location,
 
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from("avatars")
-            .getPublicUrl(fileName);
-          avatarUrl = urlData.publicUrl;
-        }
-      }
+        pharmacy_name: pharmacyName,
+        pharmacy_gst_number: pharmacyGst,
+        fssai_id: fssiId,
+        dl_no: dlNo,
+        pharmacy_address: address,
+        pharmacy_pincode: pincode,
+        pharmacy_phone: pharmacyPhone,
+        pharmacy_landline: pharmacyLandline,
 
-      // Update profile
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          age: parseInt(age) || null,
-          gender,
-          date_of_birth: dob || null,
-          phone,
-          avatar_url: avatarUrl,
-          clinic_name: clinicName,
-          clinic_gst_number: gstNumber,
-          clinic_phone: clinicPhone,
-          clinic_landline: landline,
-          clinic_location: location,
-          pharmacy_name: pharmacyName,
-          pharmacy_gst_number: pharmacyGst,
-          fssai_id: fssiId,
-          dl_no: dlNo,
-          pharmacy_address: address,
-          pharmacy_pincode: pincode,
-          pharmacy_phone: pharmacyPhone,
-          pharmacy_landline: pharmacyLandline,
-          shifts: JSON.parse(JSON.stringify(shifts)),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", user.id);
+        shifts,
+      }),
+    });
 
-      if (error) throw error;
+    const result = await res.json();
 
-      await refreshProfile();
-      toast.success("Profile updated successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update profile");
-    } finally {
-      setLoading(false);
+    if (!res.ok || result.resSuccess !== 1) {
+      throw new Error(result.message || "Update failed");
     }
-  };
+
+    toast.success("Profile updated successfully!");
+  } catch (error: any) {
+    toast.error(error.message || "Failed to update profile");
+  } finally {
+    setLoading(false);
+  }
+};
+  
 
   return (
     <DashboardLayout>

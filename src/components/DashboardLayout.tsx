@@ -213,8 +213,8 @@ const getFullName = () => {
   if (!profile) return "User";
 
   return (
-    profile.pharmacy?.name ||
-    profile.clinic?.name ||
+    profile.pharmacy?.pharmacyName ||
+    profile.clinic?.clinicName ||
     "User"
   );
 };
@@ -265,9 +265,9 @@ const getFullName = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
-            <span className="text-xs font-medium text-secondary-foreground">
-              {profile?.pharmacy?.name?.slice(0, 6).toUpperCase() || "NEXUS"}
-            </span>
+          <span className="text-xs font-medium text-secondary-foreground">
+  {profile?.pharmacy?.pharmacyName?.slice(0, 6).toUpperCase() || "NEXUS"}
+</span>
           </div>
         </div>
       </header>

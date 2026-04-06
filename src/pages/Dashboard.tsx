@@ -47,6 +47,7 @@ const stockData = [
 
 const Dashboard = () => {
   const { profile } = useAuth();
+  console.log("Profile in Dashboard:", profile);
   const navigate = useNavigate();
   const [purchaseDropdownOpen, setPurchaseDropdownOpen] = useState(false);
   const [receiveDropdownOpen, setReceiveDropdownOpen] = useState(false);
